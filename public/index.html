@@ -282,15 +282,15 @@ body {
 }
 
 body.bar-collapsed #topbar { display: none; }
-body.bar-collapsed #grid { padding-top: 52px; } /* 给悬浮按钮留出专属条，不再叠在窗格上 */
 #barShow {
-	position: fixed; top: 10px; left: 50%; transform: translateX(-50%); z-index: 39; display: none;
-	height: 32px; padding: 0 16px 0 12px; border-radius: 99px; font-size: 12.5px; font-weight: 600; color: var(--fg2);
+	position: fixed; top: 10px; right: 14px; z-index: 39; display: none;
+	width: 30px; height: 30px; border-radius: 50%;
+	color: var(--fg2); opacity: .6;
 	background: color-mix(in srgb, var(--panel) 90%, transparent); backdrop-filter: blur(10px);
 	border: 1px solid var(--line); box-shadow: var(--shadow);
-	align-items: center; justify-content: center; gap: 6px;
+	align-items: center; justify-content: center;
 }
-#barShow:hover { color: var(--fg); border-color: var(--accent); }
+#barShow:hover { opacity: 1; color: var(--fg); border-color: var(--accent); }
 #barShow svg { display: block; }
 body.bar-collapsed #barShow { display: inline-flex; }
 
@@ -327,7 +327,6 @@ body.bar-collapsed #barShow { display: inline-flex; }
 
 <button id="barShow">
 	<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 14l6-6 6 6"/></svg>
-	<span id="barShowText"></span>
 </button>
 
 <div id="grid"></div>
@@ -1051,7 +1050,6 @@ function applyLang() {
 	$("#fontPlus").title = t.fontPlusTitle;
 	$("#barCollapse").textContent = t.collapseBar;
 	$("#barShow").title = t.expandBar;
-	$("#barShowText").textContent = t.expandBar;
 	$("#casterIcon").title = t.casterTitle;
 	$("#accentBtn").title = t.accentT;
 	$("#casterSend").textContent = t.send;
