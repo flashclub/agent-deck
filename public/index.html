@@ -80,14 +80,11 @@ body {
 .tbtn:hover { color: var(--fg); border-color: var(--accent); }
 #fontSizeLab { min-width: 44px; text-align: center; color: var(--fg2); font-variant-numeric: tabular-nums; }
 
-#themeSeg { display: flex; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; background: var(--panel2); }
-#themeSeg button {
+#themeSeg, #langSeg { display: flex; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; background: var(--panel2); }
+#themeSeg button, #langSeg button {
 	height: 32px; padding: 0 14px; font-size: 13px; color: var(--fg3); display: flex; align-items: center; gap: 6px;
 }
-#themeSeg button.on { background: var(--accent-deep); color: var(--accent-contrast); font-weight: 600; }
-#langSeg { display: flex; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; background: var(--panel2); }
-#langSeg button { height: 32px; padding: 0 12px; font-size: 13px; color: var(--fg3); }
-#langSeg button.on { background: var(--accent-deep); color: var(--accent-contrast); font-weight: 600; }
+#themeSeg button.on, #langSeg button.on { background: var(--accent-deep); color: var(--accent-contrast); font-weight: 600; }
 
 /* ================= 网格 ================= */
 #grid {
@@ -365,24 +362,13 @@ $("#fontPlus").onclick = () => { if (fontSize < 24) { fontSize++; localStorage.s
 /* ================= i18n ================= */
 const I18N = {
 	zh: {
-		dark: "🌙 深色", light: "☀️ 浅色",
-		fontMinusTitle: "减小终端字号", fontPlusTitle: "增大终端字号",
-		collapseBar: "收起 ▾", expandBar: "展开顶栏",
-		casterTitle: "给终端发消息（悬停展开）",
-		send: "发送 ▶",
-		hintTab: "切换目标", hintBc: "广播全部", hintEsc: "收起",
-		connLost: "⚠ 与服务器断开，正在重连…",
-		pickAgent: "选择要在本窗格运行的智能体",
-		cwdPh: "工作目录（默认上次使用）",
-		go: "启动 ▶",
-		launcherHint: "点击智能体后 Enter 启动 · 智能体和终端 TUI 快捷键与本地一致",
-		noAgents: "未检测到可用智能体",
-		reBtn: "↻ 重新启动", clearBtn: "关闭本窗格", procName: "进程",
-		maxT: "放大/还原", restartT: "重新启动", closeT: "关闭",
+		dark: "🌙 深色", light: "☀️ 浅色", fontMinusTitle: "减小终端字号", fontPlusTitle: "增大终端字号", collapseBar: "收起 ▾", expandBar: "展开顶栏",
+		casterTitle: "给终端发消息（悬停展开）", send: "发送 ▶", hintTab: "切换目标", hintBc: "广播全部", hintEsc: "收起",
+		connLost: "⚠ 与服务器断开，正在重连…", pickAgent: "选择要在本窗格运行的智能体", cwdPh: "工作目录（默认上次使用）",
+		go: "启动 ▶", launcherHint: "点击智能体后 Enter 启动 · 智能体和终端 TUI 快捷键与本地一致", noAgents: "未检测到可用智能体",
+		reBtn: "↻ 重新启动", clearBtn: "关闭本窗格", procName: "进程", maxT: "放大/还原", restartT: "重新启动", closeT: "关闭",
 		exited: (n, c) => `${n} 已退出${c != null ? `（code ${c}）` : ""}`,
-		paneBusy: "该窗格正在运行，请先关闭",
-		noAgentAvail: "没有可用智能体",
-		noRunning: "没有运行中的终端",
+		paneBusy: "该窗格正在运行，请先关闭", noAgentAvail: "没有可用智能体", noRunning: "没有运行中的终端",
 		targetStopped: "目标终端已停止",
 		sentTo: (l) => `已发送 → ${l}`,
 		phAll: "输入消息，Enter 广播到全部运行中的终端…",
@@ -390,28 +376,18 @@ const I18N = {
 		all: "◎ 全部", allTitle: "广播到全部运行中的终端", oneTitle: (n) => `发送到第 ${n} 格`,
 		closeTitle: (n) => `关闭 ${n}？`, killMsg: (cwd) => `进程将被终止\n${cwd}`, killBtn: "终止并关闭",
 		restartTitle: (n) => `重新启动 ${n}？`, restartMsg: (cwd) => `当前进程将被终止\n${cwd}`, restartBtn: "重启",
-		ok: "确定", cancel: "取消", running: "运行",
-		clickToEdit: "点击编辑标题",
+		ok: "确定", cancel: "取消", running: "运行", clickToEdit: "点击编辑标题",
 	},
 	en: {
-		dark: "🌙 Dark", light: "☀️ Light",
-		fontMinusTitle: "Smaller terminal font", fontPlusTitle: "Larger terminal font",
-		collapseBar: "Hide ▾", expandBar: "Show toolbar",
+		dark: "🌙 Dark", light: "☀️ Light", fontMinusTitle: "Smaller terminal font", fontPlusTitle: "Larger terminal font", collapseBar: "Hide ▾", expandBar: "Show toolbar",
 		casterTitle: "Send to terminals (hover to expand)",
-		send: "Send ▶",
-		hintTab: "cycle target", hintBc: "broadcast all", hintEsc: "collapse",
-		connLost: "⚠ Disconnected, reconnecting…",
+		send: "Send ▶", hintTab: "cycle target", hintBc: "broadcast all", hintEsc: "collapse", connLost: "⚠ Disconnected, reconnecting…",
 		pickAgent: "Pick an agent for this pane",
 		cwdPh: "Working directory (defaults to last used)",
-		go: "Launch ▶",
-		launcherHint: "Click an agent then Enter to launch · Agent TUI shortcuts work as local",
-		noAgents: "No agents detected",
-		reBtn: "↻ Restart", clearBtn: "Close pane", procName: "Process",
-		maxT: "Maximize/restore", restartT: "Restart", closeT: "Close",
+		go: "Launch ▶", launcherHint: "Click an agent then Enter to launch · Agent TUI shortcuts work as local", noAgents: "No agents detected",
+		reBtn: "↻ Restart", clearBtn: "Close pane", procName: "Process", maxT: "Maximize/restore", restartT: "Restart", closeT: "Close",
 		exited: (n, c) => `${n} exited${c != null ? ` (code ${c})` : ""}`,
-		paneBusy: "This pane is busy — close it first",
-		noAgentAvail: "No agent available",
-		noRunning: "No running terminals",
+		paneBusy: "This pane is busy — close it first", noAgentAvail: "No agent available", noRunning: "No running terminals",
 		targetStopped: "Target terminal has stopped",
 		sentTo: (l) => `Sent → ${l}`,
 		phAll: "Type a message, Enter broadcasts to all running terminals…",
@@ -419,8 +395,7 @@ const I18N = {
 		all: "◎ All", allTitle: "Broadcast to all running terminals", oneTitle: (n) => `Send to pane ${n}`,
 		closeTitle: (n) => `Close ${n}?`, killMsg: (cwd) => `The process will be terminated\n${cwd}`, killBtn: "Terminate & close",
 		restartTitle: (n) => `Restart ${n}?`, restartMsg: (cwd) => `The current process will be terminated\n${cwd}`, restartBtn: "Restart",
-		ok: "OK", cancel: "Cancel", running: "running",
-		clickToEdit: "Click to edit title",
+		ok: "OK", cancel: "Cancel", running: "running", clickToEdit: "Click to edit title",
 	},
 };
 let lang = localStorage.getItem("ag:lang") || "en";
@@ -470,37 +445,17 @@ for (let i = 0; i < SLOTS; i++) {
 			</div>
 		</div>`;
 	grid.append(root);
-	paneEls.push({
-		root,
-		hd: root.querySelector(".pane-hd"),
-		dot: root.querySelector(".pdot"),
-		icon: root.querySelector(".picon"),
-		name: root.querySelector(".pname"),
-		ptitle: root.querySelector(".ptitle"),
-		cwd: root.querySelector(".pcwd"),
-		termBox: root.querySelector(".term"),
-		launcher: root.querySelector(".launcher"),
-		agentBtns: root.querySelector(".agentBtns"),
-		cwdInput: root.querySelector(".cwdInput"),
-		goBtn: root.querySelector(".goBtn"),
-		chips: root.querySelector(".chips"),
-		exited: root.querySelector(".exited"),
-		exitedCode: root.querySelector(".exited .code"),
-		lh3: root.querySelector(".launcher h3"),
-		lhint: root.querySelector(".launcher .hint"),
-		reBtn: root.querySelector(".reBtn"),
-		clearBtn: root.querySelector(".clearBtn"),
-		maxBtn: root.querySelector(".pact.max"),
-		restartBtn: root.querySelector(".pact.restart"),
-		closeBtn: root.querySelector(".pact.close"),
-	});
+	/* 自动生成元素引用：选择器 → 属性名 */
+	const REF_MAP = { hd: ".pane-hd", dot: ".pdot", icon: ".picon", name: ".pname", ptitle: ".ptitle", cwd: ".pcwd", termBox: ".term", launcher: ".launcher", agentBtns: ".agentBtns", cwdInput: ".cwdInput", goBtn: ".goBtn", chips: ".chips", exited: ".exited", exitedCode: ".exited .code", lh3: ".launcher h3", lhint: ".launcher .hint", reBtn: ".reBtn", clearBtn: ".clearBtn", maxBtn: ".pact.max", restartBtn: ".pact.restart", closeBtn: ".pact.close" };
+	const el = { root };
+	for (const [k, sel] of Object.entries(REF_MAP)) el[k] = root.querySelector(sel);
+	paneEls.push(el);
 
 	// 交互
 	root.addEventListener("mousedown", (e) => {
 		if (e.target.closest("input")) return; // 输入框交互不抢焦点
 		focusSlot(i);
 	}, true);
-	const el = paneEls[i];
 	el.ptitle.onclick = () => editTitle(i);
 	el.maxBtn.onclick = (e) => { e.stopPropagation(); toggleMax(i); };
 	el.restartBtn.onclick = (e) => { e.stopPropagation(); restartSlot(i); };
@@ -748,6 +703,7 @@ function reconcile() {
 		attachPane(pane, slot);
 		pendingSpawn = pendingSpawn.filter((s) => s !== slot);
 	}
+	renderCasterTargets();
 	updateTitle();
 }
 function updateTitle() {
@@ -987,9 +943,7 @@ function flashPane(slot) {
 	root.classList.add("cast-flash");
 	setTimeout(() => root.classList.remove("cast-flash"), 950);
 }
-/* 窗格变化时刷新目标列表 */
-const _reconcile = reconcile;
-reconcile = function () { _reconcile(); renderCasterTargets(); };
+/* 窗格变化时同步刷新指挥条目标列表（reconcile 尾部也会调用） */
 
 /* ================= 应用语言 / 顶栏收起 ================= */
 function applyLang() {
