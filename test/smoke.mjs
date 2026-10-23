@@ -55,6 +55,8 @@ const checks = [
 	["顶栏收起按钮存在", !!window.document.querySelector("#barCollapse"), ""],
 	["指挥条组件存在", !!window.document.querySelector("#caster") && !!window.document.querySelector("#casterIcon"), ""],
 	["标题元素就位", $$(".ptitle").length === 4, `got ${$$(".ptitle").length}`],
+	["色盘 6 色可选", $$(".swatch").length === 6, `got ${$$(".swatch").length}`],
+	["默认强调色已生效(蓝)", window.document.documentElement.style.getPropertyValue("--accent") === "#5ea2ff", window.document.documentElement.style.getPropertyValue("--accent")],
 ];
 
 let fail = 0;

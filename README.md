@@ -48,7 +48,7 @@ Agents are **auto-detected** from your machine (`command -v`): pi, Claude Code, 
 - **English & Chinese UI** — defaults to English, one-click 中/EN switch in the toolbar, every string localized.
 - **Editable pane titles** — click a pane's title to rename it; the full path slides in on hover. Titles and pane positions persist across refresh.
 - **Collapsible toolbar** — hide the top bar for maximum terminal real estate; a small ⌃ button brings it back.
-- **Light & dark themes** — tuned terminal palettes for both, persisted; adjustable terminal font size (12–24px).
+- **Light & dark themes + six accent colors** — tuned terminal palettes (cursor follows your accent), persisted; adjustable terminal font size (12–24px).
 - **Per-pane controls** — click to focus, `⤢` maximize, `↻` restart, `✕` close; status dot pulses while output is flowing.
 - **Smart cwd picker** — optionally offers recent project directories read from pi's local session library (see Privacy).
 - **Custom dialogs & toasts** — no native `alert()` anywhere.

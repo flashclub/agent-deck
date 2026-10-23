@@ -86,6 +86,17 @@ body {
 .tbtn:hover { color: var(--fg); border-color: var(--accent); }
 #fontSizeLab { min-width: 44px; text-align: center; color: var(--fg2); font-variant-numeric: tabular-nums; }
 
+.accentWrap { position: relative; }
+#accentPop {
+	position: absolute; top: 40px; right: 0; z-index: 60; display: none;
+	background: var(--panel); border: 1.5px solid var(--line); border-radius: 12px;
+	padding: 10px; box-shadow: var(--shadow); gap: 9px; flex-wrap: wrap; width: 152px;
+}
+#accentPop.open { display: flex; }
+.swatch { width: 26px; height: 26px; border-radius: 50%; border: 2px solid transparent; flex: none; }
+.swatch:hover { transform: scale(1.12); }
+.swatch.on { border-color: var(--fg); box-shadow: 0 0 0 2px var(--panel), 0 0 0 3.5px var(--fg3); }
+
 #themeSeg, #langSeg { display: flex; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; background: var(--panel2); }
 #themeSeg button, #langSeg button {
 	height: 32px; padding: 0 14px; font-size: 13px; color: var(--fg3); display: flex; align-items: center; gap: 6px;
@@ -295,6 +306,10 @@ body.bar-collapsed #barShow { display: inline-flex; }
 	<button class="tbtn" id="fontMinus" title="减小终端字号">A −</button>
 	<span id="fontSizeLab">15px</span>
 	<button class="tbtn" id="fontPlus" title="增大终端字号">A ＋</button>
+	<div class="accentWrap">
+		<button class="tbtn" id="accentBtn" title="Accent">◈</button>
+		<div id="accentPop"></div>
+	</div>
 	<div id="themeSeg">
 		<button id="thDark">🌙 深色</button>
 		<button id="thLight">☀️ 浅色</button>
@@ -345,15 +360,35 @@ const TERM_THEMES = {
 		brightBlue: "#0a4fa3", brightMagenta: "#6829e0", cyan: "#0a6c78", brightWhite: "#3f4855",
 	},
 };
+/* 强调色盘：[亮色系基色, 深色] × [深/浅主题]，终端光标同步 */
+const ACCENTS = {
+	violet: { dark: ["#a48bff", "#7c5cf0"], light: ["#6d4bf0", "#5b3ce0"] },
+	blue:   { dark: ["#5ea2ff", "#2f7cf6"], light: ["#1663d6", "#0d55c0"] },
+	teal:   { dark: ["#2dd4bf", "#0d9488"], light: ["#0c8577", "#0a6d63"] },
+	amber:  { dark: ["#ffab5e", "#f07c1d"], light: ["#d96a00", "#b35600"] },
+	rose:   { dark: ["#fb7ba2", "#e11d63"], light: ["#d6336c", "#b62a5c"] },
+	slate:  { dark: ["#9db0cc", "#64748b"], light: ["#475569", "#334155"] },
+};
+let accent = localStorage.getItem("ag:accent") || "blue";
 let themeName = localStorage.getItem("ag:theme") || "dark";
 let fontSize = Number(localStorage.getItem("ag:font") || 15);
 if (fontSize < 12 || fontSize > 24) fontSize = 15;
 
+function currentTermTheme() {
+	return { ...TERM_THEMES[themeName], cursor: (ACCENTS[accent] || ACCENTS.blue)[themeName][0] };
+}
+function applyAccent() {
+	const a = (ACCENTS[accent] || ACCENTS.blue)[themeName];
+	document.documentElement.style.setProperty("--accent", a[0]);
+	document.documentElement.style.setProperty("--accent-deep", a[1]);
+	for (const t of Object.values(terms)) if (t) t.options.theme = currentTermTheme();
+	renderAccentPop();
+}
 function applyTheme() {
 	document.body.dataset.theme = themeName;
 	$("#thDark").classList.toggle("on", themeName === "dark");
 	$("#thLight").classList.toggle("on", themeName === "light");
-	for (const t of Object.values(terms)) if (t) t.options.theme = TERM_THEMES[themeName];
+	applyAccent();
 }
 function applyFontSize() {
 	$("#fontSizeLab").textContent = fontSize + "px";
@@ -382,7 +417,7 @@ const I18N = {
 		all: "◎ 全部", allTitle: "广播到全部运行中的终端", oneTitle: (n) => `发送到第 ${n} 格`,
 		closeTitle: (n) => `关闭 ${n}？`, killMsg: (cwd) => `进程将被终止\n${cwd}`, killBtn: "终止并关闭",
 		restartTitle: (n) => `重新启动 ${n}？`, restartMsg: (cwd) => `当前进程将被终止\n${cwd}`, restartBtn: "重启",
-		ok: "确定", cancel: "取消", running: "运行", clickToEdit: "点击编辑标题",
+		ok: "确定", cancel: "取消", running: "运行", clickToEdit: "点击编辑标题", accentT: "强调色",
 	},
 	en: {
 		dark: "🌙 Dark", light: "☀️ Light", fontMinusTitle: "Smaller terminal font", fontPlusTitle: "Larger terminal font", collapseBar: "Hide ▾", expandBar: "Show toolbar",
@@ -401,7 +436,7 @@ const I18N = {
 		all: "◎ All", allTitle: "Broadcast to all running terminals", oneTitle: (n) => `Send to pane ${n}`,
 		closeTitle: (n) => `Close ${n}?`, killMsg: (cwd) => `The process will be terminated\n${cwd}`, killBtn: "Terminate & close",
 		restartTitle: (n) => `Restart ${n}?`, restartMsg: (cwd) => `The current process will be terminated\n${cwd}`, restartBtn: "Restart",
-		ok: "OK", cancel: "Cancel", running: "running", clickToEdit: "Click to edit title",
+		ok: "OK", cancel: "Cancel", running: "running", clickToEdit: "Click to edit title", accentT: "Accent color",
 	},
 };
 let lang = localStorage.getItem("ag:lang") || "en";
@@ -475,7 +510,7 @@ for (let i = 0; i < SLOTS; i++) {
 	const term = new Terminal({
 		fontSize,
 		fontFamily: '"SF Mono", Menlo, "Cascadia Code", "JetBrains Mono", Consolas, monospace',
-		theme: TERM_THEMES[themeName],
+		theme: currentTermTheme(),
 		cursorBlink: true,
 		allowProposedApi: true,
 		scrollback: 4000,
@@ -951,6 +986,21 @@ function flashPane(slot) {
 }
 /* 窗格变化时同步刷新指挥条目标列表（reconcile 尾部也会调用） */
 
+function renderAccentPop() {
+	const pop = $("#accentPop");
+	pop.innerHTML = "";
+	for (const [key, v] of Object.entries(ACCENTS)) {
+		const b = document.createElement("button");
+		b.className = "swatch" + (key === accent ? " on" : "");
+		b.style.background = `linear-gradient(135deg, ${v[themeName][0]}, ${v[themeName][1]})`;
+		b.title = key;
+		b.onclick = () => { accent = key; localStorage.setItem("ag:accent", key); applyAccent(); };
+		pop.append(b);
+	}
+}
+$("#accentBtn").onclick = (e) => { e.stopPropagation(); renderAccentPop(); $("#accentPop").classList.toggle("open"); };
+document.addEventListener("click", (e) => { if (!e.target.closest(".accentWrap")) $("#accentPop").classList.remove("open"); });
+
 /* ================= 应用语言 / 顶栏收起 ================= */
 function applyLang() {
 	const t = T();
@@ -962,6 +1012,7 @@ function applyLang() {
 	$("#barCollapse").textContent = t.collapseBar;
 	$("#barShow").title = t.expandBar;
 	$("#casterIcon").title = t.casterTitle;
+	$("#accentBtn").title = t.accentT;
 	$("#casterSend").textContent = t.send;
 	$("#casterHint").innerHTML = `<b>Tab</b> ${t.hintTab} · <b>⌘/Ctrl+⏎</b> ${t.hintBc} · <b>Esc</b> ${t.hintEsc}`;
 	$("#connBanner").textContent = t.connLost;
