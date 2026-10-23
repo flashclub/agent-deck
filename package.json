@@ -1,0 +1,37 @@
+{
+	"name": "agent-deck",
+	"version": "1.0.0",
+	"private": false,
+	"description": "One screen, four terminals, any AI coding agent. A local web cockpit that runs pi / Claude Code / Codex / any CLI agent side by side.",
+	"type": "module",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/flashclub/agent-deck.git"
+	},
+	"keywords": [
+		"ai-agents",
+		"claude-code",
+		"codex",
+		"pi",
+		"terminal",
+		"pty",
+		"xterm",
+		"coding-agent",
+		"multiplexer"
+	],
+	"scripts": {
+		"start": "node server.mjs",
+		"test:e2e": "node test/e2e.mjs",
+		"postinstall": "node -e \"const fs=require('fs'),p='node_modules/node-pty/prebuilds';if(fs.existsSync(p)){for(const d of fs.readdirSync(p)){const f=p+'/'+d+'/spawn-helper';try{fs.chmodSync(f,0o755)}catch{}}}\""
+	},
+	"engines": {
+		"node": ">=22"
+	},
+	"dependencies": {
+		"@xterm/addon-fit": "^0.10.0",
+		"@xterm/xterm": "^5.5.0",
+		"node-pty": "^1.1.0",
+		"ws": "^8.18.0"
+	}
+}

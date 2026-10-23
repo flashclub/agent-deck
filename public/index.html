@@ -1,0 +1,845 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AgentDeck</title>
+<link rel="stylesheet" href="/vendor/xterm.css" />
+<script src="/vendor/xterm.js"></script>
+<script src="/vendor/addon-fit.js"></script>
+<style>
+/* ================= 主题变量 ================= */
+:root { --term-font: 15px; }
+[data-theme="dark"] {
+	--bg: #171a21;
+	--panel: #21252e;
+	--panel2: #2a2f3a;
+	--line: #3a4150;
+	--line-soft: #313845;
+	--fg: #eef1f6;
+	--fg2: #c2cad6;      /* 次级文字：保证可读 */
+	--fg3: #97a1b2;
+	--accent: #a48bff;
+	--accent-deep: #7c5cf0;
+	--accent-contrast: #ffffff;
+	--green: #3ddc97;
+	--red: #ff7a7a;
+	--yellow: #ffcc66;
+	--blue: #6fb3ff;
+	--shadow: 0 10px 34px rgba(0,0,0,.45);
+	--term-bg: #21252e;
+}
+[data-theme="light"] {
+	--bg: #eceff4;
+	--panel: #ffffff;
+	--panel2: #f4f6fa;
+	--line: #d5dbe4;
+	--line-soft: #e2e7ee;
+	--fg: #1d222c;
+	--fg2: #3f4855;
+	--fg3: #5d6774;
+	--accent: #6d4bf0;
+	--accent-deep: #5b3ce0;
+	--accent-contrast: #ffffff;
+	--green: #149e63;
+	--red: #d5333f;
+	--yellow: #b07b00;
+	--blue: #1160c9;
+	--shadow: 0 10px 30px rgba(30,40,60,.14);
+	--term-bg: #ffffff;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+	font: 14.5px/1.5 -apple-system, "SF Pro Text", "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+	background: var(--bg); color: var(--fg);
+	overflow: hidden; display: flex; flex-direction: column;
+	transition: background .25s, color .25s;
+}
+
+/* ================= 顶栏 ================= */
+#topbar {
+	display: flex; align-items: center; gap: 14px;
+	padding: 10px 18px; background: var(--panel); border-bottom: 1px solid var(--line);
+	flex: none; z-index: 5;
+}
+#brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 16px; }
+#brand .mark {
+	width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center;
+	background: linear-gradient(135deg, var(--accent-deep), var(--accent)); color: #fff; font-size: 14px;
+}
+#brand small { font-weight: 500; color: var(--fg3); font-size: 12.5px; }
+#topbar .grow { flex: 1; }
+
+.tbtn {
+	height: 32px; min-width: 32px; padding: 0 10px; border-radius: 8px;
+	border: 1px solid var(--line); color: var(--fg2); background: var(--panel2);
+	font-size: 13.5px; display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+}
+.tbtn:hover { color: var(--fg); border-color: var(--accent); }
+#fontSizeLab { min-width: 44px; text-align: center; color: var(--fg2); font-variant-numeric: tabular-nums; }
+
+#themeSeg { display: flex; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; background: var(--panel2); }
+#themeSeg button {
+	height: 32px; padding: 0 14px; font-size: 13px; color: var(--fg3); display: flex; align-items: center; gap: 6px;
+}
+#themeSeg button.on { background: var(--accent-deep); color: var(--accent-contrast); font-weight: 600; }
+
+/* ================= 网格 ================= */
+#grid {
+	flex: 1; display: grid; min-height: 0; gap: 12px; padding: 12px;
+	grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr;
+}
+#grid.maxmode .pane:not(.maxed) { display: none; }
+#grid.maxmode { grid-template-columns: 1fr; grid-template-rows: 1fr; }
+
+.pane {
+	position: relative;
+	display: flex; flex-direction: column; min-width: 0; min-height: 0;
+	background: var(--panel); border: 1.5px solid var(--line); border-radius: 14px; overflow: hidden;
+	box-shadow: var(--shadow);
+}
+.pane.focused { border-color: var(--accent); }
+
+.pane-hd {
+	display: flex; align-items: center; gap: 8px; padding: 7px 10px 7px 12px;
+	background: var(--panel2); border-bottom: 1px solid var(--line-soft); flex: none;
+}
+.pdot { width: 9px; height: 9px; border-radius: 50%; background: var(--fg3); flex: none; }
+.pdot.run { background: var(--green); }
+.pdot.active { background: var(--green); animation: pulse 1s infinite; box-shadow: 0 0 8px var(--green); }
+.pdot.exited { background: var(--red); }
+@keyframes pulse { 50% { opacity: .35; } }
+
+.picon {
+	width: 22px; height: 22px; border-radius: 6px; background: var(--panel); border: 1px solid var(--line);
+	display: grid; place-items: center; font-size: 12.5px; color: var(--accent); flex: none; font-weight: 700;
+}
+.pname { font-weight: 700; font-size: 13.5px; }
+.pcwd { color: var(--fg3); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pane-hd .grow { flex: 1; }
+.pact {
+	width: 28px; height: 26px; border-radius: 7px; color: var(--fg3); font-size: 13px;
+	display: grid; place-items: center; border: 1px solid transparent;
+}
+.pact:hover { color: var(--fg); background: var(--panel); border-color: var(--line); }
+.pact.danger:hover { color: var(--red); }
+
+.term { flex: 1; min-height: 0; padding: 4px 6px 6px; }
+.term .xterm { height: 100%; }
+.term .xterm-viewport { background: var(--term-bg) !important; }
+
+/* ================= 启动器（空窗格） ================= */
+.launcher {
+	position: absolute; inset: 0; z-index: 3; display: flex; flex-direction: column;
+	align-items: center; justify-content: center; gap: 14px; padding: 18px;
+	background: var(--panel); overflow-y: auto;
+}
+.launcher h3 { margin: 0; font-size: 14.5px; color: var(--fg2); font-weight: 600; }
+.agentBtns { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; max-width: 480px; }
+.agentBtn {
+	display: flex; flex-direction: column; align-items: center; gap: 6px;
+	width: 104px; padding: 12px 8px 10px; border-radius: 12px;
+	background: var(--panel2); border: 1.5px solid var(--line); color: var(--fg);
+}
+.agentBtn:hover { border-color: var(--accent); transform: translateY(-1px); }
+.agentBtn .ic {
+	width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; font-size: 17px; font-weight: 700;
+	background: linear-gradient(135deg, var(--accent-deep), var(--accent)); color: #fff;
+}
+.agentBtn .nm { font-weight: 600; font-size: 13.5px; }
+.agentBtn .ds { font-size: 11.5px; color: var(--fg3); }
+.launcher .cwdRow { display: flex; gap: 8px; width: min(440px, 90%); }
+.launcher input {
+	flex: 1; padding: 9px 12px; border-radius: 9px; border: 1.5px solid var(--line);
+	background: var(--panel2); color: var(--fg); font-size: 13.5px; min-width: 0;
+}
+.launcher input:focus { border-color: var(--accent); outline: none; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; max-width: 520px; }
+.chip {
+	padding: 4px 12px; border-radius: 99px; font-size: 12px; color: var(--fg2);
+	border: 1px solid var(--line); background: var(--panel2);
+}
+.chip:hover { border-color: var(--accent); color: var(--fg); }
+.launcher .hint { font-size: 12px; color: var(--fg3); }
+
+/* ================= 退出遮罩 ================= */
+.exited {
+	position: absolute; inset: 0; z-index: 4; display: none;
+	align-items: center; justify-content: center; gap: 12px; flex-direction: column;
+	background: color-mix(in srgb, var(--panel) 82%, transparent); backdrop-filter: blur(2px);
+}
+.exited.show { display: flex; }
+.exited .code { color: var(--fg2); font-size: 13.5px; }
+.exited .row { display: flex; gap: 10px; }
+.bigBtn { padding: 9px 22px; border-radius: 10px; font-weight: 600; font-size: 14px; }
+.bigBtn.primary { background: linear-gradient(135deg, var(--accent-deep), var(--accent)); color: #fff; }
+.bigBtn.ghost { border: 1.5px solid var(--line); color: var(--fg2); background: var(--panel2); }
+.bigBtn:hover { filter: brightness(1.08); }
+
+/* ================= 对话框（替代原生 alert/confirm） ================= */
+.dlg-mask {
+	position: fixed; inset: 0; z-index: 80; display: flex; align-items: center; justify-content: center;
+	background: color-mix(in srgb, var(--bg) 55%, transparent); backdrop-filter: blur(4px);
+	animation: dlgFade .15s ease;
+}
+@keyframes dlgFade { from { opacity: 0; } }
+@keyframes dlgPop { from { opacity: 0; transform: scale(.94) translateY(6px); } }
+.dlg {
+	width: min(400px, 90vw); background: var(--panel); border: 1.5px solid var(--line);
+	border-radius: 16px; padding: 22px; box-shadow: var(--shadow); animation: dlgPop .18s cubic-bezier(.2,.9,.3,1.2);
+}
+.dlg h4 { margin: 0 0 8px; font-size: 15.5px; }
+.dlg p { margin: 0 0 20px; color: var(--fg2); font-size: 13.5px; line-height: 1.6; white-space: pre-wrap; word-break: break-all; }
+.dlg .row { display: flex; justify-content: flex-end; gap: 10px; }
+.bigBtn.danger { background: var(--red); color: #fff; }
+
+/* ================= 断线提示 ================= */
+#connBanner {
+	position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 50;
+	background: var(--red); color: #fff; padding: 8px 20px; border-radius: 99px;
+	font-size: 13.5px; font-weight: 600; display: none; box-shadow: 0 6px 24px rgba(0,0,0,.3);
+}
+
+/* ================= 底部广播输入条 ================= */
+#casterIcon {
+	position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
+	width: 46px; height: 46px; border-radius: 50%; z-index: 40;
+	background: var(--panel); border: 1.5px solid var(--line); color: var(--fg2);
+	font-size: 19px; box-shadow: var(--shadow); opacity: .55;
+	transition: opacity .2s, transform .2s, border-color .2s, color .2s;
+}
+#casterIcon:hover { opacity: 1; border-color: var(--accent); color: var(--accent); transform: translateX(-50%) scale(1.07); }
+
+#caster {
+	position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); z-index: 41;
+	display: none; flex-direction: column; align-items: center; gap: 7px;
+}
+#caster.open { display: flex; animation: castUp .18s ease; }
+@keyframes castUp { from { opacity: 0; transform: translateX(-50%) translateY(10px); } }
+#casterBar {
+	display: flex; align-items: center; gap: 8px; padding: 8px 10px;
+	width: min(840px, 94vw); border-radius: 16px;
+	background: color-mix(in srgb, var(--panel) 94%, transparent); backdrop-filter: blur(12px);
+	border: 1.5px solid var(--line); box-shadow: var(--shadow);
+}
+#casterTargets { display: flex; gap: 6px; flex: none; max-width: 58%; overflow-x: auto; padding-bottom: 1px; }
+.ctarget {
+	display: flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 9px;
+	border: 1.5px solid var(--line); background: var(--panel2); color: var(--fg2);
+	font-size: 12.5px; white-space: nowrap; flex: none;
+}
+.ctarget:hover { color: var(--fg); border-color: var(--accent); }
+.ctarget.sel { background: var(--accent-deep); border-color: var(--accent); color: var(--accent-contrast); font-weight: 600; }
+.ctarget .n { font-size: 10.5px; opacity: .7; }
+#casterInput { flex: 1; min-width: 100px; border: none; background: none; font-size: 14.5px; color: var(--fg); padding: 6px 4px; }
+#casterInput:focus { outline: none; }
+#casterSend {
+	padding: 7px 16px; border-radius: 10px; flex: none; font-weight: 600; font-size: 13px;
+	background: linear-gradient(135deg, var(--accent-deep), var(--accent)); color: var(--accent-contrast);
+}
+#casterSend:hover { filter: brightness(1.1); }
+#casterHint {
+	font-size: 11.5px; color: var(--fg3); padding: 3px 14px; border-radius: 99px;
+	background: color-mix(in srgb, var(--panel) 82%, transparent); backdrop-filter: blur(8px);
+}
+#casterHint b { color: var(--fg2); font-weight: 600; }
+
+.pane.cast-flash { animation: castGlow .9s ease; }
+@keyframes castGlow {
+	0%, 55% { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 32%, transparent), var(--shadow); }
+}
+
+@media (max-width: 900px) {
+	#grid { grid-template-columns: 1fr; grid-template-rows: repeat(4, 1fr); }
+}
+</style>
+</head>
+<body data-theme="dark">
+
+<div id="connBanner">⚠ 与服务器断开，正在重连…</div>
+<datalist id="recentsList"></datalist>
+
+<div id="topbar">
+	<div id="brand"><span class="mark">⬡</span>AgentDeck<small>4 agents · 2×2</small></div>
+	<div class="grow"></div>
+	<button class="tbtn" id="fontMinus" title="减小终端字号">A −</button>
+	<span id="fontSizeLab">15px</span>
+	<button class="tbtn" id="fontPlus" title="增大终端字号">A ＋</button>
+	<div id="themeSeg">
+		<button id="thDark">🌙 深色</button>
+		<button id="thLight">☀️ 浅色</button>
+	</div>
+</div>
+
+<div id="grid"></div>
+
+<button id="casterIcon" title="给终端发消息（悬停展开）">⌨</button>
+<div id="caster">
+	<div id="casterBar">
+		<div id="casterTargets"></div>
+		<input id="casterInput" maxlength="4000" placeholder="输入消息，Enter 发送到选中终端…" spellcheck="false" />
+		<button id="casterSend">发送 ▶</button>
+	</div>
+	<div id="casterHint"><b>Tab</b> 切换目标 · <b>⌘/Ctrl+⏎</b> 广播全部 · <b>Esc</b> 收起</div>
+</div>
+
+<script>
+"use strict";
+const $ = (s) => document.querySelector(s);
+const { Terminal } = window.Terminal !== undefined ? { Terminal: window.Terminal } : {};
+const FitAddon = window.FitAddon ? window.FitAddon.FitAddon : undefined;
+
+/* ================= 主题（xterm 调色板 + CSS 变量联动） ================= */
+const TERM_THEMES = {
+	dark: {
+		background: "#21252e", foreground: "#eef1f6", cursor: "#a48bff", cursorAccent: "#21252e",
+		selectionBackground: "#44506a",
+		black: "#454c59", red: "#ff7a7a", green: "#3ddc97", yellow: "#ffcc66",
+		blue: "#6fb3ff", magenta: "#d99bff", cyan: "#5fd4e0", white: "#d7dde8",
+		brightBlack: "#8b95a7", brightRed: "#ff9e9e", brightGreen: "#6ef0b4", brightYellow: "#ffe08a",
+		brightBlue: "#93c6ff", brightMagenta: "#ecb8ff", brightCyan: "#8ae6f0", brightWhite: "#ffffff",
+	},
+	light: {
+		background: "#ffffff", foreground: "#1d222c", cursor: "#6d4bf0", cursorAccent: "#ffffff",
+		selectionBackground: "#cdd9ff",
+		black: "#1d222c", red: "#cf2a36", green: "#0f8a55", yellow: "#9a6b00",
+		blue: "#0b5cc4", magenta: "#7a3ff0", cyan: "#0d7d8a", white: "#5d6774",
+		brightBlack: "#4a5261", brightRed: "#b32430", brightGreen: "#0c7444", brightYellow: "#7f5600",
+		brightBlue: "#0a4fa3", brightMagenta: "#6829e0", cyan: "#0a6c78", brightWhite: "#3f4855",
+	},
+};
+let themeName = localStorage.getItem("ag:theme") || "dark";
+let fontSize = Number(localStorage.getItem("ag:font") || 15);
+if (fontSize < 12 || fontSize > 24) fontSize = 15;
+
+function applyTheme() {
+	document.body.dataset.theme = themeName;
+	$("#thDark").classList.toggle("on", themeName === "dark");
+	$("#thLight").classList.toggle("on", themeName === "light");
+	for (const t of Object.values(terms)) if (t) t.options.theme = TERM_THEMES[themeName];
+}
+function applyFontSize() {
+	$("#fontSizeLab").textContent = fontSize + "px";
+	for (const t of Object.values(terms)) if (t) t.options.fontSize = fontSize;
+	fitAll();
+}
+$("#thDark").onclick = () => { themeName = "dark"; localStorage.setItem("ag:theme", themeName); applyTheme(); };
+$("#thLight").onclick = () => { themeName = "light"; localStorage.setItem("ag:theme", themeName); applyTheme(); };
+$("#fontMinus").onclick = () => { if (fontSize > 12) { fontSize--; localStorage.setItem("ag:font", fontSize); applyFontSize(); } };
+$("#fontPlus").onclick = () => { if (fontSize < 24) { fontSize++; localStorage.setItem("ag:font", fontSize); applyFontSize(); } };
+
+/* ================= 窗格状态 ================= */
+const SLOTS = 4;
+const grid = $("#grid");
+const paneEls = [];     // slot -> {root, hd, term, launcher, exited}
+const terms = [];       // slot -> Terminal
+const fits = [];        // slot -> FitAddon
+const slotPane = [];    // slot -> paneId
+const paneSlot = new Map(); // paneId -> slot
+const paneMeta = new Map(); // paneId -> meta
+let agents = [];
+let recents = [];
+let pendingSpawn = []; // 记录用户点击启动的格位，回包时优先绑回原格
+const lastOut = new Map(); // paneId -> ts
+
+for (let i = 0; i < SLOTS; i++) {
+	const root = document.createElement("div");
+	root.className = "pane";
+	root.innerHTML = `
+		<div class="pane-hd" style="display:none">
+			<span class="pdot"></span><span class="picon"></span>
+			<span class="pname"></span><span class="pcwd"></span><div class="grow"></div>
+			<button class="pact max" title="放大/还原">⤢</button>
+			<button class="pact restart" title="重新启动">↻</button>
+			<button class="pact danger close" title="关闭">✕</button>
+		</div>
+		<div class="term"></div>
+		<div class="launcher">
+			<h3>选择要在本窗格运行的智能体</h3>
+			<div class="agentBtns"></div>
+			<div class="cwdRow">
+				<input class="cwdInput" list="recentsList" placeholder="工作目录（默认上次使用）" spellcheck="false" />
+				<button class="bigBtn primary goBtn">启动 ▶</button>
+			</div>
+			<div class="chips"></div>
+			<div class="hint">点击智能体后 Enter 启动 · 智能体和终端 TUI 快捷键与本地一致</div>
+		</div>
+		<div class="exited">
+			<div class="code"></div>
+			<div class="row">
+				<button class="bigBtn primary reBtn">↻ 重新启动</button>
+				<button class="bigBtn ghost clearBtn">关闭本窗格</button>
+			</div>
+		</div>`;
+	grid.append(root);
+	paneEls.push({
+		root,
+		hd: root.querySelector(".pane-hd"),
+		dot: root.querySelector(".pdot"),
+		icon: root.querySelector(".picon"),
+		name: root.querySelector(".pname"),
+		cwd: root.querySelector(".pcwd"),
+		termBox: root.querySelector(".term"),
+		launcher: root.querySelector(".launcher"),
+		agentBtns: root.querySelector(".agentBtns"),
+		cwdInput: root.querySelector(".cwdInput"),
+		goBtn: root.querySelector(".goBtn"),
+		chips: root.querySelector(".chips"),
+		exited: root.querySelector(".exited"),
+		exitedCode: root.querySelector(".exited .code"),
+		reBtn: root.querySelector(".reBtn"),
+		clearBtn: root.querySelector(".clearBtn"),
+		maxBtn: root.querySelector(".pact.max"),
+		restartBtn: root.querySelector(".pact.restart"),
+		closeBtn: root.querySelector(".pact.close"),
+	});
+
+	// 交互
+	root.addEventListener("mousedown", () => focusSlot(i), true);
+	const el = paneEls[i];
+	el.maxBtn.onclick = (e) => { e.stopPropagation(); toggleMax(i); };
+	el.restartBtn.onclick = (e) => { e.stopPropagation(); restartSlot(i); };
+	el.closeBtn.onclick = (e) => { e.stopPropagation(); closeSlot(i); };
+	el.reBtn.onclick = () => restartSlot(i);
+	el.clearBtn.onclick = () => { clearSlot(i); };
+	el.goBtn.onclick = () => launchFrom(i);
+	el.cwdInput.addEventListener("keydown", (e) => { if (e.key === "Enter") launchFrom(i); });
+
+	// 终端
+	const term = new Terminal({
+		fontSize,
+		fontFamily: '"SF Mono", Menlo, "Cascadia Code", "JetBrains Mono", Consolas, monospace',
+		theme: TERM_THEMES[themeName],
+		cursorBlink: true,
+		allowProposedApi: true,
+		scrollback: 4000,
+	});
+	const fit = new FitAddon();
+	term.loadAddon(fit);
+	term.open(el.termBox);
+	terms[i] = term;
+	fits[i] = fit;
+	term.onData((data) => {
+		const pid = slotPane[i];
+		if (pid) send({ t: "input", id: pid, data });
+	});
+	term.onResize(({ cols, rows }) => {
+		const pid = slotPane[i];
+		if (pid) send({ t: "resize", id: pid, cols, rows });
+	});
+	// 尺寸自适应
+	new ResizeObserver(() => {
+		try { fit.fit(); } catch {}
+	}).observe(el.termBox);
+
+	// 空窗格默认显示启动器
+	showLauncher(i, true);
+}
+
+/* ================= 窗格 UI 状态 ================= */
+function showLauncher(slot, show) {
+	paneEls[slot].launcher.style.display = show ? "flex" : "none";
+	paneEls[slot].hd.style.display = show ? "none" : "flex";
+	if (show) { paneEls[slot].exited.classList.remove("show"); renderAgentBtns(slot); }
+}
+function renderAgentBtns(slot) {
+	const el = paneEls[slot];
+	el.agentBtns.innerHTML = "";
+	for (const a of agents) {
+		const b = document.createElement("button");
+		b.className = "agentBtn";
+		b.innerHTML = `<span class="ic">${a.icon}</span><span class="nm">${esc(a.name)}</span><span class="ds">${esc(a.desc || "")}</span>`;
+		b.onclick = () => { el.cwdInput.value = el.cwdInput.value || lastCwdGuess(); launch(slot, a.id, el.cwdInput.value); };
+		el.agentBtns.append(b);
+	}
+	if (!agents.length) el.agentBtns.innerHTML = `<div style="color:var(--fg3)">未检测到可用智能体</div>`;
+	// datalist + chips
+	$("#recentsList").innerHTML = recents.map((d) => `<option value="${esc(d)}">`).join("");
+	el.chips.innerHTML = "";
+	for (const d of recents.slice(0, 6)) {
+		const c = document.createElement("button");
+		c.className = "chip";
+		c.textContent = "~/…" + d.split("/").slice(-2).join("/");
+		c.title = d;
+		c.onclick = () => { el.cwdInput.value = d; el.cwdInput.focus(); };
+		el.chips.append(c);
+	}
+}
+function lastCwdGuess() { return recents[0] || ""; }
+function launchFrom(slot) {
+	const el = paneEls[slot];
+	const first = agents[0];
+	if (!first) return toast("没有可用智能体");
+	launch(slot, first.id, el.cwdInput.value);
+}
+function launch(slot, agentId, cwd) {
+	if (slotPane[slot]) return toast("该窗格正在运行，请先关闭", true);
+	if (!pendingSpawn.includes(slot)) pendingSpawn.push(slot);
+	send({ t: "spawn", agentId, cwd: cwd || undefined });
+}
+function attachPane(pane, slot) {
+	slotPane[slot] = pane.id;
+	paneSlot.set(pane.id, slot);
+	const el = paneEls[slot];
+	el.icon.textContent = pane.icon;
+	el.name.textContent = pane.name;
+	el.cwd.textContent = pane.cwd;
+	el.cwd.title = pane.cwd;
+	showLauncher(slot, false);
+	el.exited.classList.remove("show");
+	setDot(slot, "run");
+	const term = terms[slot];
+	term.reset();
+	send({ t: "replay", id: pane.id });
+	setTimeout(() => { try { paneEls[slot] && fitSlot(slot); } catch {} }, 60);
+	focusSlot(slot);
+}
+function setDot(slot, cls) {
+	paneEls[slot].dot.className = "pdot" + (cls ? " " + cls : "");
+}
+function detachSlot(slot) {
+	const pid = slotPane[slot];
+	if (pid) { paneSlot.delete(pid); }
+	slotPane[slot] = null;
+	showLauncher(slot, true);
+	setDot(slot, "");
+}
+function clearSlot(slot) {
+	const pid = slotPane[slot];
+	if (pid) send({ t: "kill", id: pid });
+	detachSlot(slot);
+}
+async function closeSlot(slot) {
+	const pid = slotPane[slot];
+	if (!pid) return;
+	const meta = paneMeta.get(pid);
+	if (!meta) return;
+	if (meta.running) {
+		const ok = await confirmDialog({
+			title: `关闭 ${meta.name}？`,
+			message: `进程将被终止\n${meta.cwd}`,
+			confirmText: "终止并关闭", danger: true,
+		});
+		if (!ok) return;
+		send({ t: "kill", id: pid });
+	}
+	detachSlot(slot);
+}
+async function restartSlot(slot) {
+	const pid = slotPane[slot];
+	if (!pid) return;
+	const meta = paneMeta.get(pid);
+	if (!meta) return;
+	if (meta.running) {
+		const ok = await confirmDialog({
+			title: `重新启动 ${meta.name}？`,
+			message: `当前进程将被终止\n${meta.cwd}`,
+			confirmText: "重启", danger: true,
+		});
+		if (!ok) return;
+	}
+	const { agentId, cwd } = meta;
+	send({ t: "kill", id: pid });
+	detachSlot(slot);
+	if (!pendingSpawn.includes(slot)) pendingSpawn.push(slot);
+	send({ t: "spawn", agentId, cwd });
+}
+
+/* 放大 */
+let maxedSlot = -1;
+function toggleMax(slot) {
+	if (maxedSlot === slot) {
+		maxedSlot = -1;
+		grid.classList.remove("maxmode");
+		paneEls[slot].root.classList.remove("maxed");
+	} else {
+		if (maxedSlot >= 0) { paneEls[maxedSlot].root.classList.remove("maxed"); }
+		maxedSlot = slot;
+		grid.classList.add("maxmode");
+		paneEls[slot].root.classList.add("maxed");
+	}
+	setTimeout(fitAll, 50);
+}
+
+/* 焦点 */
+let focusedSlot = -1;
+function focusSlot(slot) {
+	for (let i = 0; i < SLOTS; i++) paneEls[i].root.classList.toggle("focused", i === slot && !!slotPane[i]);
+	focusedSlot = slot;
+	if (slotPane[slot]) terms[slot].focus();
+}
+document.addEventListener("keydown", (e) => {
+	if (e.altKey && !e.ctrlKey && !e.metaKey && /^[1-4]$/.test(e.key)) {
+		e.preventDefault();
+		focusSlot(Number(e.key) - 1);
+	}
+});
+
+/* ================= reconcile：把服务端窗格分配到界面槽位 ================= */
+function reconcile() {
+	// 清掉已不存在的
+	for (let i = 0; i < SLOTS; i++) {
+		const pid = slotPane[i];
+		if (pid && !paneMeta.has(pid)) detachSlot(i);
+	}
+	const list = [...paneMeta.values()].sort((a, b) => a.startedAt - b.startedAt);
+	for (const pane of list) {
+		if (paneSlot.has(pane.id)) continue;
+		// 优先绑回用户点击启动的格位，否则用第一个空格
+		let slot = pendingSpawn.find((s) => !slotPane[s]);
+		if (slot === undefined) slot = [0, 1, 2, 3].find((i) => !slotPane[i]);
+		if (slot === undefined) break;
+		attachPane(pane, slot);
+		pendingSpawn = pendingSpawn.filter((s) => s !== slot);
+	}
+	updateTitle();
+}
+function updateTitle() {
+	const n = [...paneMeta.values()].filter((p) => p.running).length;
+	document.title = (n ? `● ${n} 运行 · ` : "") + "AgentDeck";
+}
+
+/* 活动指示灯：2 秒内有输出 = 闪烁 */
+setInterval(() => {
+	for (let i = 0; i < SLOTS; i++) {
+		const pid = slotPane[i];
+		if (!pid) { setDot(i, ""); continue; }
+		const meta = paneMeta.get(pid);
+		if (!meta) continue;
+		if (!meta.running) { setDot(i, "exited"); continue; }
+		const ts = lastOut.get(pid) || 0;
+		setDot(i, Date.now() - ts < 2000 ? "active" : "run");
+	}
+}, 800);
+
+/* ================= WebSocket ================= */
+let ws = null, wsTimer = null;
+function connect() {
+	ws = new WebSocket(`ws://${location.host}/ws`);
+	ws.onopen = () => {
+		$("#connBanner").style.display = "none";
+		send({ t: "hello" });
+	};
+	ws.onclose = () => {
+		$("#connBanner").style.display = "block";
+		wsTimer = setTimeout(connect, 2000);
+	};
+	ws.onmessage = (e) => {
+		let m; try { m = JSON.parse(e.data); } catch { return; }
+		switch (m.t) {
+			case "hello":
+				agents = m.agents || [];
+				paneMeta.clear();
+				for (const p of m.panes || []) paneMeta.set(p.id, p);
+				paneSlot.clear();
+				slotPane.fill(null);
+				for (let i = 0; i < SLOTS; i++) detachSlot(i); // 重置为启动器状态
+				reconcile();
+				updateTitle();
+				break;
+			case "recents":
+				recents = m.recents || [];
+				for (let i = 0; i < SLOTS; i++) if (!slotPane[i]) renderAgentBtns(i);
+				break;
+			case "panes": {
+				const seen = new Set();
+				paneMeta.clear();
+				for (const p of m.panes || []) { paneMeta.set(p.id, p); seen.add(p.id); }
+				reconcile();
+				updateTitle();
+				break;
+			}
+			case "output": {
+				lastOut.set(m.id, Date.now());
+				const slot = paneSlot.get(m.id);
+				if (slot !== undefined) terms[slot].write(m.data);
+				break;
+			}
+			case "exit": {
+				const slot = paneSlot.get(m.id);
+				if (slot !== undefined) {
+					const meta = paneMeta.get(m.id);
+					paneEls[slot].exitedCode.textContent = `${meta ? meta.name : "进程"} 已退出${m.code != null ? `（code ${m.code}）` : ""}`;
+					paneEls[slot].exited.classList.add("show");
+				}
+				break;
+			}
+			case "error":
+				pendingSpawn.shift(); // 启动失败时释放占位的格（FIFO）
+				toast(m.message, true);
+				break;
+		}
+	};
+}
+function send(obj) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj)); }
+connect();
+
+/* ================= 工具 ================= */
+function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+function toast(msg, isErr) {
+	let el = document.createElement("div");
+	el.style.cssText = `position:fixed;bottom:18px;left:50%;transform:translateX(-50%);z-index:99;
+		background:${isErr ? "var(--red)" : "var(--panel2)"};color:${isErr ? "#fff" : "var(--fg)"};
+		border:1px solid var(--line);padding:9px 20px;border-radius:99px;font-size:13.5px;box-shadow:var(--shadow)`;
+	el.textContent = msg;
+	document.body.append(el);
+	setTimeout(() => el.remove(), 3200);
+}
+let _dlg = null;
+/** 自绘确认框：await confirmDialog({...}) → true/false。Enter 确认 / Esc 取消 / 点遮罩取消 */
+function confirmDialog({ title, message = "", confirmText = "确定", cancelText = "取消", danger = false }) {
+	if (_dlg) _dlg.remove(); // 同一时刻只保留一个
+	return new Promise((resolve) => {
+		const mask = document.createElement("div");
+		mask.className = "dlg-mask";
+		mask.innerHTML = `
+			<div class="dlg" role="dialog" aria-modal="true">
+				<h4>${esc(title)}</h4>
+				${message ? `<p>${esc(message)}</p>` : ""}
+				<div class="row">
+				<button class="bigBtn ghost cancel">${esc(cancelText)}</button>
+				<button class="bigBtn ${danger ? "danger" : "primary"} ok" autofocus>${esc(confirmText)}</button>
+			</div>
+			</div>`;
+		const done = (v) => { mask.remove(); _dlg = null; document.removeEventListener("keydown", onKey); resolve(v); };
+		const onKey = (e) => {
+			if (e.key === "Enter") { e.preventDefault(); done(true); }
+			else if (e.key === "Escape") done(false);
+		};
+		mask.addEventListener("mousedown", (e) => { if (e.target === mask) done(false); });
+		mask.querySelector(".cancel").onclick = () => done(false);
+		mask.querySelector(".ok").onclick = () => done(true);
+		document.addEventListener("keydown", onKey);
+		document.body.append(mask);
+		mask.querySelector(".ok").focus();
+		_dlg = mask;
+	});
+}
+
+function fitSlot(slot) {
+	try { fits[slot] && fits[slot].fit(); } catch {}
+}
+function fitAll() {
+	for (let i = 0; i < SLOTS; i++) fitSlot(i);
+}
+window.addEventListener("resize", fitAll);
+
+/* ================= 底部广播输入条 ================= */
+const caster = $("#caster"), casterIcon = $("#casterIcon"), casterInput = $("#casterInput"),
+	casterTargets = $("#casterTargets"), casterSend = $("#casterSend");
+let casterTarget = localStorage.getItem("ag:cast") || "all"; // "all" | 格位序号
+let casterTimer = null;
+
+function casterTargetList() {
+	const list = [{ id: "all", label: "◎ 全部" }];
+	for (let i = 0; i < SLOTS; i++) {
+		const pid = slotPane[i];
+		if (!pid) continue;
+		const meta = paneMeta.get(pid);
+		if (!meta || !meta.running) continue;
+		list.push({ id: String(i), label: `${meta.icon} ${meta.name}`, num: i + 1 });
+	}
+	return list;
+}
+
+function renderCasterTargets() {
+	const list = casterTargetList();
+	if (!list.some((t) => String(t.id) === String(casterTarget))) casterTarget = "all";
+	casterTargets.innerHTML = "";
+	for (const t of list) {
+		const b = document.createElement("button");
+		b.className = "ctarget" + (String(casterTarget) === t.id ? " sel" : "");
+		b.innerHTML = t.num != null ? `<span class="n">${t.num}</span>${esc(t.label)}` : esc(t.label);
+		b.title = t.id === "all" ? "广播到全部运行中的终端" : `发送到第 ${t.num} 格`;
+		b.onclick = () => { casterTarget = t.id; localStorage.setItem("ag:cast", t.id); renderCasterTargets(); casterInput.focus(); };
+		casterTargets.append(b);
+	}
+	casterInput.placeholder = casterTarget === "all"
+		? "输入消息，Enter 广播到全部运行中的终端…"
+		: `输入消息，Enter 发送到第 ${Number(casterTarget) + 1} 格…`;
+}
+
+function openCaster(focus = true) {
+	caster.classList.add("open");
+	casterIcon.style.display = "none";
+	renderCasterTargets();
+	if (focus) casterInput.focus();
+}
+function closeCaster(refocusTerm = true) {
+	caster.classList.remove("open");
+	casterIcon.style.display = "";
+	casterInput.blur();
+	if (refocusTerm && focusedSlot >= 0 && slotPane[focusedSlot]) terms[focusedSlot].focus();
+}
+
+casterIcon.addEventListener("mouseenter", () => { clearTimeout(casterTimer); openCaster(); });
+casterIcon.addEventListener("click", () => openCaster());
+caster.addEventListener("mouseenter", () => clearTimeout(casterTimer));
+caster.addEventListener("mouseleave", () => {
+	casterTimer = setTimeout(() => { if (document.activeElement !== casterInput) closeCaster(false); }, 400);
+});
+casterInput.addEventListener("focus", () => clearTimeout(casterTimer));
+casterInput.addEventListener("blur", () => {
+	casterTimer = setTimeout(() => { if (!caster.matches(":hover")) closeCaster(false); }, 350);
+});
+casterInput.addEventListener("keydown", (e) => {
+	if (e.key === "Tab") {
+		e.preventDefault();
+		const list = casterTargetList();
+		if (list.length < 2) return;
+		const idx = list.findIndex((t) => String(t.id) === String(casterTarget));
+		const next = e.shiftKey ? list[(idx - 1 + list.length) % list.length] : list[(idx + 1) % list.length];
+		casterTarget = next.id;
+		localStorage.setItem("ag:cast", next.id);
+		renderCasterTargets();
+	} else if (e.key === "Enter" && !e.isComposing) {
+		e.preventDefault();
+		castSend(e.metaKey || e.ctrlKey);
+	} else if (e.key === "Escape") {
+		closeCaster();
+	}
+});
+casterSend.onclick = () => castSend(false);
+
+function castSend(forceAll) {
+	const text = casterInput.value.replace(/[\r\n\t]+/g, " ").trim();
+	if (!text) return;
+	const list = casterTargetList();
+	let targets;
+	if (forceAll || casterTarget === "all") {
+		targets = list.filter((t) => t.id !== "all");
+		if (!targets.length) return toast("没有运行中的终端", true);
+	} else {
+		const t = list.find((x) => x.id === casterTarget);
+		if (!t) return toast("目标终端已停止", true);
+		targets = [t];
+	}
+	for (const t of targets) {
+		const slot = Number(t.id);
+		const pid = slotPane[slot];
+		if (!pid) continue;
+		send({ t: "input", id: pid, data: text + "\r" });
+		flashPane(slot);
+	}
+	casterInput.value = "";
+	toast(`已发送 → ${targets.map((t) => (t.num != null ? `${t.num}·${t.label}` : "全部")).join(" · ")}`);
+}
+function flashPane(slot) {
+	const root = paneEls[slot].root;
+	root.classList.remove("cast-flash");
+	void root.offsetWidth; // 重启动画
+	root.classList.add("cast-flash");
+	setTimeout(() => root.classList.remove("cast-flash"), 950);
+}
+/* 窗格变化时刷新目标列表 */
+const _reconcile = reconcile;
+reconcile = function () { _reconcile(); renderCasterTargets(); };
+
+applyTheme();
+applyFontSize();
+updateTitle();
+</script>
+</body>
+</html>
