@@ -379,8 +379,9 @@ function currentTermTheme() {
 }
 function applyAccent() {
 	const a = (ACCENTS[accent] || ACCENTS.blue)[themeName];
-	document.documentElement.style.setProperty("--accent", a[0]);
-	document.documentElement.style.setProperty("--accent-deep", a[1]);
+	/* 必须设在 body 上：主题变量定义在 [data-theme](body)，设在 html 会被级联盖住 */
+	document.body.style.setProperty("--accent", a[0]);
+	document.body.style.setProperty("--accent-deep", a[1]);
 	for (const t of Object.values(terms)) if (t) t.options.theme = currentTermTheme();
 	renderAccentPop();
 }
@@ -925,8 +926,8 @@ function closeCaster(refocusTerm = true) {
 	if (refocusTerm && focusedSlot >= 0 && slotPane[focusedSlot]) terms[focusedSlot].focus();
 }
 
-casterIcon.addEventListener("mouseenter", () => { clearTimeout(casterTimer); openCaster(); });
-casterIcon.addEventListener("click", () => openCaster());
+casterIcon.addEventListener("mouseenter", () => { clearTimeout(casterTimer); openCaster(false); }); // 悬停只展开，不抢焦点
+casterIcon.addEventListener("click", () => openCaster(true)); // 点击展开并聚焦
 caster.addEventListener("mouseenter", () => clearTimeout(casterTimer));
 caster.addEventListener("mouseleave", () => {
 	casterTimer = setTimeout(() => { if (document.activeElement !== casterInput) closeCaster(false); }, 400);
