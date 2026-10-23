@@ -266,6 +266,7 @@ const MIME = {
 
 const STATIC = {
 	"/": path.join(__dirname, "public", "index.html"),
+	"/vendor/normalize.css": path.join(__dirname, "node_modules", "modern-normalize", "modern-normalize.css"),
 	"/vendor/xterm.js": path.join(__dirname, "node_modules", "@xterm", "xterm", "lib", "xterm.js"),
 	"/vendor/xterm.css": path.join(__dirname, "node_modules", "@xterm", "xterm", "css", "xterm.css"),
 	"/vendor/addon-fit.js": path.join(__dirname, "node_modules", "@xterm", "addon-fit", "lib", "addon-fit.js"),

@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>AgentDeck</title>
+<link rel="stylesheet" href="/vendor/normalize.css" />
 <link rel="stylesheet" href="/vendor/xterm.css" />
 <script src="/vendor/xterm.js"></script>
 <script src="/vendor/addon-fit.js"></script>
@@ -49,7 +50,12 @@
 	--term-bg: #ffffff;
 }
 
-* { box-sizing: border-box; }
+/* 基线交由 modern-normalize（box-sizing/字体栈/表单继承），此处只补主题相关基线 */
+button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }
+input::placeholder, textarea::placeholder { color: var(--fg3); opacity: 1; }
+::selection { background: var(--accent); color: var(--accent-contrast); }
+html { -webkit-tap-highlight-color: transparent; }
+body { -webkit-font-smoothing: antialiased; }
 html, body { height: 100%; margin: 0; }
 body {
 	font: 14.5px/1.5 -apple-system, "SF Pro Text", "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
