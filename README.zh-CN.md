@@ -16,7 +16,7 @@
 <p align="center">
   <img src="docs/img/demo.gif" width="880" alt="AgentDeck 演示" />
 </p>
-<p align="center"><sub>演示：指挥条 → Tab 选目标发送 → 切主题/强调色</sub></p>
+<p align="center"><sub>从空白页面到四格智能体并行 —— 逐格点选启动，任意放大独占</sub></p>
 
 <p align="center">
   <img src="docs/img/hero-zh.png" width="880" alt="AgentDeck 中文界面" />
@@ -50,6 +50,7 @@ node server.mjs
   - `Enter` 发送到选中格
   - `⌘/Ctrl+Enter` 一键**广播全部**运行中的智能体
   - 收到的窗格紫色光晕闪烁；`Esc` 收起并把焦点还给终端
+<p align="center"><img src="docs/img/caster.gif" width="760" alt="指挥条演示：广播全部，再单发一格" /></p>
 - **中英双语界面** — 默认英文，顶栏一键切换 中/EN，全部文案已国际化
 - **窗格标题可编辑** — 点击标题重命名，悬停滑出完整路径；标题与格位刷新后保持不变
 - **顶栏可收起** — 隐藏顶栏榨干屏幕空间，右上角 ⌃ 小按钮随时唤回

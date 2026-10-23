@@ -16,7 +16,7 @@ Stop juggling terminal tabs. AgentDeck gives you a 2×2 grid of real terminals i
 <p align="center">
   <img src="docs/img/demo.gif" width="880" alt="AgentDeck demo — broadcast to panes, switch theme & accent" />
 </p>
-<p align="center"><sub>30-second demo: caster dock → Tab-target send → theme & accent switch</sub></p>
+<p align="center"><sub>From an empty page to four live agents — pick per pane, then maximize any of them</sub></p>
 
 <p align="center">
   <img src="docs/img/hero-dark.png" width="880" alt="AgentDeck — dark theme, four agents running side by side" />
@@ -55,6 +55,7 @@ Agents are **auto-detected** from your machine (`command -v`): pi, Claude Code, 
   - `Enter` sends to the selected pane
   - `⌘/Ctrl+Enter` broadcasts to **all** running agents at once
   - receiving panes flash; `Esc` collapses and returns focus to the terminal
+<p align="center"><img src="docs/img/caster.gif" width="760" alt="caster demo: broadcast to all panes, then send to a single pane" /></p>
 - **English & Chinese UI** — defaults to English, one-click 中/EN switch in the toolbar, every string localized.
 - **Editable pane titles** — click a pane's title to rename it; the full path slides in on hover. Titles and pane positions persist across refresh.
 - **Collapsible toolbar** — hide the top bar for maximum terminal real estate; a small ⌃ button brings it back.
