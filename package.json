@@ -33,5 +33,8 @@
 		"@xterm/xterm": "^5.5.0",
 		"node-pty": "^1.1.0",
 		"ws": "^8.18.0"
+	},
+	"devDependencies": {
+		"jsdom": "^30.1.3"
 	}
 }

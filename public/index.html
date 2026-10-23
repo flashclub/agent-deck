@@ -496,12 +496,12 @@ for (let i = 0; i < SLOTS; i++) {
 	});
 
 	// 交互
-	el.ptitle.onclick = () => editTitle(i);
 	root.addEventListener("mousedown", (e) => {
 		if (e.target.closest("input")) return; // 输入框交互不抢焦点
 		focusSlot(i);
 	}, true);
 	const el = paneEls[i];
+	el.ptitle.onclick = () => editTitle(i);
 	el.maxBtn.onclick = (e) => { e.stopPropagation(); toggleMax(i); };
 	el.restartBtn.onclick = (e) => { e.stopPropagation(); restartSlot(i); };
 	el.closeBtn.onclick = (e) => { e.stopPropagation(); closeSlot(i); };
