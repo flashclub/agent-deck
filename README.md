@@ -2,21 +2,26 @@
 
 **[English](README.md)** | [简体中文](README.zh-CN.md)
 
+[![CI](https://github.com/flashclub/agent-deck/actions/workflows/ci.yml/badge.svg)](https://github.com/flashclub/agent-deck/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-6d4bf0.svg)](LICENSE)
+[![Node >= 22](https://img.shields.io/badge/node-%3E%3D22-339633?logo=nodedotjs&logoColor=white)](https://nodejs.org)
+[![Platforms](https://img.shields.io/badge/platforms-macOS%20%7C%20Linux-555555)](#quick-start)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-3ddc97)](https://github.com/flashclub/agent-deck/pulls)
+[![Zero build](https://img.shields.io/badge/zero_build-no_config-ffcc66)](#quick-start)
+
 **One screen. Four terminals. Any AI coding agent.**
 
 Stop juggling terminal tabs. AgentDeck gives you a 2×2 grid of real terminals in your browser — launch [pi](https://pi.dev), [Claude Code](https://claude.com/product/claude-code), [Codex](https://openai.com/codex), Gemini CLI, Aider, or a plain shell in any pane, and drive them all from one page.
 
-```
-┌─────────────────┬─────────────────┐
-│  π pi           │  ✳ claude       │
-│  ~/my-app       │  ~/my-app       │
-│                 │                 │
-├─────────────────┼─────────────────┤
-│  ◆ codex        │  >_ zsh         │
-│  ~/infra        │  ~/scratch      │
-└─────────────────┴─────────────────┘
-        ⌨  ← hover the dock, broadcast to all four at once
-```
+<p align="center">
+  <img src="docs/img/hero-dark.png" width="880" alt="AgentDeck — dark theme, four agents running side by side" />
+</p>
+<p align="center"><sub>Dark theme · pi + Claude Code + two shells · ⌨ caster dock at the bottom</sub></p>
+
+<p align="center">
+  <img src="docs/img/hero-light.png" width="880" alt="AgentDeck — light theme with the caster dock expanded" />
+</p>
+<p align="center"><sub>Light theme · caster dock expanded — <code>Tab</code> cycles targets, <code>⌘/Ctrl+Enter</code> broadcasts to every pane</sub></p>
 
 ## Why
 

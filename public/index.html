@@ -821,6 +821,7 @@ function connect() {
 				for (let i = 0; i < SLOTS; i++) detachSlot(i); // 重置为启动器状态
 				reconcile();
 				updateTitle();
+				if (casterParam) { casterParam = false; openCaster(false); }
 				break;
 			case "recents":
 				recents = m.recents || [];
@@ -1080,6 +1081,15 @@ let barCollapsed = localStorage.getItem("ag:barCollapsed") === "1";
 function applyBar() { document.body.classList.toggle("bar-collapsed", barCollapsed); }
 $("#barCollapse").onclick = () => { barCollapsed = true; localStorage.setItem("ag:barCollapsed", "1"); applyBar(); };
 $("#barShow").onclick = () => { barCollapsed = false; localStorage.setItem("ag:barCollapsed", "0"); applyBar(); };
+
+/* URL 参数（演示/截图/分享状态用）：?theme=dark|light&lang=zh|en&caster=1 —— 只改当次，不写入 localStorage */
+let casterParam = false; // ?caster=1：hello 后自动展开指挥条（截图/演示）
+{
+	const q = new URLSearchParams(location.search);
+	if (q.get("theme") === "light" || q.get("theme") === "dark") themeName = q.get("theme");
+	if (q.get("lang") === "zh" || q.get("lang") === "en") lang = q.get("lang");
+	casterParam = q.get("caster") === "1";
+}
 
 applyLang();
 applyBar();

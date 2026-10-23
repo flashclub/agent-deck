@@ -2,21 +2,21 @@
 
 [English](README.md) | **[简体中文](README.zh-CN.md)**
 
+[![CI](https://github.com/flashclub/agent-deck/actions/workflows/ci.yml/badge.svg)](https://github.com/flashclub/agent-deck/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-6d4bf0.svg)](LICENSE)
+[![Node >= 22](https://img.shields.io/badge/node-%3E%3D22-339633?logo=nodedotjs&logoColor=white)](https://nodejs.org)
+[![Platforms](https://img.shields.io/badge/platforms-macOS%20%7C%20Linux-555555)](#quick-start)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-3ddc97)](https://github.com/flashclub/agent-deck/pulls)
+[![Zero build](https://img.shields.io/badge/zero_build-no_config-ffcc66)](#quick-start)
+
 **一屏四格，任选 AI 编程智能体。**
 
 别再来回切终端标签了。AgentDeck 在浏览器里给你一个 2×2 的真终端矩阵——任意窗格启动 [pi](https://pi.dev)、[Claude Code](https://claude.com/product/claude-code)、[Codex](https://openai.com/codex)、Gemini CLI、Aider 或普通 shell，一页全览、统一指挥。
 
-```
-┌─────────────────┬─────────────────┐
-│  π pi           │  ✳ claude       │
-│  ~/my-app       │  ~/my-app       │
-│                 │                 │
-├─────────────────┼─────────────────┤
-│  ◆ codex        │  >_ zsh         │
-│  ~/infra        │  ~/scratch      │
-└─────────────────┴─────────────────┘
-        ⌨  ← 悬停底部指挥条，一条消息广播四格
-```
+<p align="center">
+  <img src="docs/img/hero-zh.png" width="880" alt="AgentDeck 中文界面" />
+</p>
+<p align="center"><sub>中文界面 · 四格并行 · 底部指挥条悬停展开</sub></p>
 
 ## 为什么做
 
