@@ -23,6 +23,8 @@ const PORT = Number(process.env.AG_PORT || process.argv[2] || 7788);
 const HOST = process.env.AG_HOST || "127.0.0.1";
 const PI_SESSIONS_ROOT = path.join(os.homedir(), ".pi/agent/sessions");
 const BUF_CAP = 160 * 1024; // 每窗格回放缓冲上限（字符）
+/* 最近目录扫描开关：AG_RECENTS=0 可完全关闭（不读取 pi 会话库，零磁盘扫描） */
+const ENABLE_RECENTS = process.env.AG_RECENTS !== "0";
 
 /* ------------------------------------------------------------------ */
 /* 智能体清单（自动探测本机可用性）                                      */
@@ -148,6 +150,7 @@ function killPane(id) {
 /* ------------------------------------------------------------------ */
 
 async function scanRecentDirs() {
+	if (!ENABLE_RECENTS) return [];
 	const cwds = new Map(); // cwd -> latest mtime
 	let dirs;
 	try { dirs = await fsp.readdir(PI_SESSIONS_ROOT, { withFileTypes: true }); } catch { return []; }

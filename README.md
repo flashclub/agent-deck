@@ -1,5 +1,7 @@
 # AgentDeck
 
+**[English](README.md)** | [简体中文](README.zh-CN.md)
+
 **One screen. Four terminals. Any AI coding agent.**
 
 Stop juggling terminal tabs. AgentDeck gives you a 2×2 grid of real terminals in your browser — launch [pi](https://pi.dev), [Claude Code](https://claude.com/product/claude-code), [Codex](https://openai.com/codex), Gemini CLI, Aider, or a plain shell in any pane, and drive them all from one page.
@@ -15,8 +17,6 @@ Stop juggling terminal tabs. AgentDeck gives you a 2×2 grid of real terminals i
 └─────────────────┴─────────────────┘
         ⌨  ← hover the dock, broadcast to all four at once
 ```
-
-一个页面四个终端窗格，任选 AI 编程智能体并行运行；底部指挥条支持 Tab 切换目标、一键广播全部终端。
 
 ## Why
 
@@ -45,9 +45,11 @@ Agents are **auto-detected** from your machine (`command -v`): pi, Claude Code, 
   - `Enter` sends to the selected pane
   - `⌘/Ctrl+Enter` broadcasts to **all** running agents at once
   - receiving panes flash; `Esc` collapses and returns focus to the terminal
+- **English & Chinese UI** — one-click switch in the toolbar (auto-detected from your browser), every string localized.
+- **Collapsible toolbar** — hide the top bar for maximum terminal real estate; a small ⌃ button brings it back.
 - **Light & dark themes** — tuned terminal palettes for both, persisted; adjustable terminal font size (12–24px).
 - **Per-pane controls** — click to focus, `⤢` maximize, `↻` restart, `✕` close; status dot pulses while output is flowing.
-- **Smart cwd picker** — recent project directories offered from pi's session library.
+- **Smart cwd picker** — optionally offers recent project directories read from pi's local session library (see Privacy).
 - **Custom dialogs & toasts** — no native `alert()` anywhere.
 
 ## Keyboard map
@@ -64,7 +66,7 @@ Everything else (including `Shift+Enter`, steering, aborts…) is handled by eac
 ## How it works
 
 ```
-Browser (xterm.js ×4, caster, theming)
+Browser (xterm.js ×4, caster, theming, i18n)
    │  WebSocket (JSON: spawn / input / resize / replay)
    ▼
 Node server (server.mjs)
@@ -77,9 +79,15 @@ pi / claude / codex / $SHELL  — full TUI agents in their own cwd
 - Each pane keeps a ring buffer so reconnects replay recent output.
 - Broadcast = writing `text + \r` to every running PTY; agents receive it like typed input.
 
+## Privacy
+
+- Nothing leaves your machine. The server binds to `127.0.0.1` and makes no outbound requests.
+- **No paths are baked into the repo.** The "recent directories" picker reads pi's local session library (`~/.pi/agent/sessions`) on *your* machine at runtime — everyone who clones sees only their own history.
+- Don't want that? Run with `AG_RECENTS=0` to disable the scan entirely.
+
 ## Security
 
-Listens on `127.0.0.1` only, **no authentication** — do not expose it to a network (`AG_HOST=0.0.0.0` is a foot-gun: anyone on your LAN gets a shell). This is a local tool, by design.
+No authentication, by design — a local tool. Do **not** expose it to a network (`AG_HOST=0.0.0.0` is a foot-gun: anyone on your LAN gets a shell).
 
 ## Test
 

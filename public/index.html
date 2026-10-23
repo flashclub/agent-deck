@@ -85,6 +85,9 @@ body {
 	height: 32px; padding: 0 14px; font-size: 13px; color: var(--fg3); display: flex; align-items: center; gap: 6px;
 }
 #themeSeg button.on { background: var(--accent-deep); color: var(--accent-contrast); font-weight: 600; }
+#langSeg { display: flex; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; background: var(--panel2); }
+#langSeg button { height: 32px; padding: 0 12px; font-size: 13px; color: var(--fg3); }
+#langSeg button.on { background: var(--accent-deep); color: var(--accent-contrast); font-weight: 600; }
 
 /* ================= 网格 ================= */
 #grid {
@@ -251,6 +254,15 @@ body {
 	0%, 55% { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 32%, transparent), var(--shadow); }
 }
 
+body.bar-collapsed #topbar { display: none; }
+#barShow {
+	position: fixed; top: 10px; right: 14px; z-index: 39; display: none;
+	height: 30px; padding: 0 14px; border-radius: 99px; font-size: 13px; color: var(--fg2);
+	background: color-mix(in srgb, var(--panel) 88%, transparent); backdrop-filter: blur(8px);
+	border: 1px solid var(--line); box-shadow: var(--shadow);
+}
+body.bar-collapsed #barShow { display: inline-flex; }
+
 @media (max-width: 900px) {
 	#grid { grid-template-columns: 1fr; grid-template-rows: repeat(4, 1fr); }
 }
@@ -271,7 +283,14 @@ body {
 		<button id="thDark">🌙 深色</button>
 		<button id="thLight">☀️ 浅色</button>
 	</div>
+	<div id="langSeg">
+		<button id="langZh">中</button>
+		<button id="langEn">EN</button>
+	</div>
+	<button class="tbtn" id="barCollapse">收起 ▾</button>
 </div>
+
+<button id="barShow">⌃</button>
 
 <div id="grid"></div>
 
@@ -330,6 +349,68 @@ $("#thLight").onclick = () => { themeName = "light"; localStorage.setItem("ag:th
 $("#fontMinus").onclick = () => { if (fontSize > 12) { fontSize--; localStorage.setItem("ag:font", fontSize); applyFontSize(); } };
 $("#fontPlus").onclick = () => { if (fontSize < 24) { fontSize++; localStorage.setItem("ag:font", fontSize); applyFontSize(); } };
 
+/* ================= i18n ================= */
+const I18N = {
+	zh: {
+		dark: "🌙 深色", light: "☀️ 浅色",
+		fontMinusTitle: "减小终端字号", fontPlusTitle: "增大终端字号",
+		collapseBar: "收起 ▾", expandBar: "展开顶栏",
+		casterTitle: "给终端发消息（悬停展开）",
+		send: "发送 ▶",
+		hintTab: "切换目标", hintBc: "广播全部", hintEsc: "收起",
+		connLost: "⚠ 与服务器断开，正在重连…",
+		pickAgent: "选择要在本窗格运行的智能体",
+		cwdPh: "工作目录（默认上次使用）",
+		go: "启动 ▶",
+		launcherHint: "点击智能体后 Enter 启动 · 智能体和终端 TUI 快捷键与本地一致",
+		noAgents: "未检测到可用智能体",
+		reBtn: "↻ 重新启动", clearBtn: "关闭本窗格", procName: "进程",
+		maxT: "放大/还原", restartT: "重新启动", closeT: "关闭",
+		exited: (n, c) => `${n} 已退出${c != null ? `（code ${c}）` : ""}`,
+		paneBusy: "该窗格正在运行，请先关闭",
+		noAgentAvail: "没有可用智能体",
+		noRunning: "没有运行中的终端",
+		targetStopped: "目标终端已停止",
+		sentTo: (l) => `已发送 → ${l}`,
+		phAll: "输入消息，Enter 广播到全部运行中的终端…",
+		phOne: (n) => `输入消息，Enter 发送到第 ${n} 格…`,
+		all: "◎ 全部", allTitle: "广播到全部运行中的终端", oneTitle: (n) => `发送到第 ${n} 格`,
+		closeTitle: (n) => `关闭 ${n}？`, killMsg: (cwd) => `进程将被终止\n${cwd}`, killBtn: "终止并关闭",
+		restartTitle: (n) => `重新启动 ${n}？`, restartMsg: (cwd) => `当前进程将被终止\n${cwd}`, restartBtn: "重启",
+		ok: "确定", cancel: "取消", running: "运行",
+	},
+	en: {
+		dark: "🌙 Dark", light: "☀️ Light",
+		fontMinusTitle: "Smaller terminal font", fontPlusTitle: "Larger terminal font",
+		collapseBar: "Hide ▾", expandBar: "Show toolbar",
+		casterTitle: "Send to terminals (hover to expand)",
+		send: "Send ▶",
+		hintTab: "cycle target", hintBc: "broadcast all", hintEsc: "collapse",
+		connLost: "⚠ Disconnected, reconnecting…",
+		pickAgent: "Pick an agent for this pane",
+		cwdPh: "Working directory (defaults to last used)",
+		go: "Launch ▶",
+		launcherHint: "Click an agent then Enter to launch · Agent TUI shortcuts work as local",
+		noAgents: "No agents detected",
+		reBtn: "↻ Restart", clearBtn: "Close pane", procName: "Process",
+		maxT: "Maximize/restore", restartT: "Restart", closeT: "Close",
+		exited: (n, c) => `${n} exited${c != null ? ` (code ${c})` : ""}`,
+		paneBusy: "This pane is busy — close it first",
+		noAgentAvail: "No agent available",
+		noRunning: "No running terminals",
+		targetStopped: "Target terminal has stopped",
+		sentTo: (l) => `Sent → ${l}`,
+		phAll: "Type a message, Enter broadcasts to all running terminals…",
+		phOne: (n) => `Type a message, Enter sends to pane ${n}…`,
+		all: "◎ All", allTitle: "Broadcast to all running terminals", oneTitle: (n) => `Send to pane ${n}`,
+		closeTitle: (n) => `Close ${n}?`, killMsg: (cwd) => `The process will be terminated\n${cwd}`, killBtn: "Terminate & close",
+		restartTitle: (n) => `Restart ${n}?`, restartMsg: (cwd) => `The current process will be terminated\n${cwd}`, restartBtn: "Restart",
+		ok: "OK", cancel: "Cancel", running: "running",
+	},
+};
+let lang = localStorage.getItem("ag:lang") || ((navigator.language || "").startsWith("zh") ? "zh" : "en");
+const T = () => I18N[lang] || I18N.zh;
+
 /* ================= 窗格状态 ================= */
 const SLOTS = 4;
 const grid = $("#grid");
@@ -351,26 +432,26 @@ for (let i = 0; i < SLOTS; i++) {
 		<div class="pane-hd" style="display:none">
 			<span class="pdot"></span><span class="picon"></span>
 			<span class="pname"></span><span class="pcwd"></span><div class="grow"></div>
-			<button class="pact max" title="放大/还原">⤢</button>
-			<button class="pact restart" title="重新启动">↻</button>
-			<button class="pact danger close" title="关闭">✕</button>
+			<button class="pact max">⤢</button>
+			<button class="pact restart">↻</button>
+			<button class="pact danger close">✕</button>
 		</div>
 		<div class="term"></div>
 		<div class="launcher">
-			<h3>选择要在本窗格运行的智能体</h3>
+			<h3></h3>
 			<div class="agentBtns"></div>
 			<div class="cwdRow">
-				<input class="cwdInput" list="recentsList" placeholder="工作目录（默认上次使用）" spellcheck="false" />
-				<button class="bigBtn primary goBtn">启动 ▶</button>
+				<input class="cwdInput" list="recentsList" spellcheck="false" />
+				<button class="bigBtn primary goBtn"></button>
 			</div>
 			<div class="chips"></div>
-			<div class="hint">点击智能体后 Enter 启动 · 智能体和终端 TUI 快捷键与本地一致</div>
+			<div class="hint"></div>
 		</div>
 		<div class="exited">
 			<div class="code"></div>
 			<div class="row">
-				<button class="bigBtn primary reBtn">↻ 重新启动</button>
-				<button class="bigBtn ghost clearBtn">关闭本窗格</button>
+				<button class="bigBtn primary reBtn"></button>
+				<button class="bigBtn ghost clearBtn"></button>
 			</div>
 		</div>`;
 	grid.append(root);
@@ -389,6 +470,8 @@ for (let i = 0; i < SLOTS; i++) {
 		chips: root.querySelector(".chips"),
 		exited: root.querySelector(".exited"),
 		exitedCode: root.querySelector(".exited .code"),
+		lh3: root.querySelector(".launcher h3"),
+		lhint: root.querySelector(".launcher .hint"),
 		reBtn: root.querySelector(".reBtn"),
 		clearBtn: root.querySelector(".clearBtn"),
 		maxBtn: root.querySelector(".pact.max"),
@@ -454,7 +537,7 @@ function renderAgentBtns(slot) {
 		b.onclick = () => { el.cwdInput.value = el.cwdInput.value || lastCwdGuess(); launch(slot, a.id, el.cwdInput.value); };
 		el.agentBtns.append(b);
 	}
-	if (!agents.length) el.agentBtns.innerHTML = `<div style="color:var(--fg3)">未检测到可用智能体</div>`;
+	if (!agents.length) el.agentBtns.innerHTML = `<div style="color:var(--fg3)">${T().noAgents}</div>`;
 	// datalist + chips
 	$("#recentsList").innerHTML = recents.map((d) => `<option value="${esc(d)}">`).join("");
 	el.chips.innerHTML = "";
@@ -471,11 +554,11 @@ function lastCwdGuess() { return recents[0] || ""; }
 function launchFrom(slot) {
 	const el = paneEls[slot];
 	const first = agents[0];
-	if (!first) return toast("没有可用智能体");
+	if (!first) return toast(T().noAgentAvail);
 	launch(slot, first.id, el.cwdInput.value);
 }
 function launch(slot, agentId, cwd) {
-	if (slotPane[slot]) return toast("该窗格正在运行，请先关闭", true);
+	if (slotPane[slot]) return toast(T().paneBusy, true);
 	if (!pendingSpawn.includes(slot)) pendingSpawn.push(slot);
 	send({ t: "spawn", agentId, cwd: cwd || undefined });
 }
@@ -518,9 +601,9 @@ async function closeSlot(slot) {
 	if (!meta) return;
 	if (meta.running) {
 		const ok = await confirmDialog({
-			title: `关闭 ${meta.name}？`,
-			message: `进程将被终止\n${meta.cwd}`,
-			confirmText: "终止并关闭", danger: true,
+			title: T().closeTitle(meta.name),
+			message: T().killMsg(meta.cwd),
+			confirmText: T().killBtn, danger: true,
 		});
 		if (!ok) return;
 		send({ t: "kill", id: pid });
@@ -534,9 +617,9 @@ async function restartSlot(slot) {
 	if (!meta) return;
 	if (meta.running) {
 		const ok = await confirmDialog({
-			title: `重新启动 ${meta.name}？`,
-			message: `当前进程将被终止\n${meta.cwd}`,
-			confirmText: "重启", danger: true,
+			title: T().restartTitle(meta.name),
+			message: T().restartMsg(meta.cwd),
+			confirmText: T().restartBtn, danger: true,
 		});
 		if (!ok) return;
 	}
@@ -598,7 +681,7 @@ function reconcile() {
 }
 function updateTitle() {
 	const n = [...paneMeta.values()].filter((p) => p.running).length;
-	document.title = (n ? `● ${n} 运行 · ` : "") + "AgentDeck";
+	document.title = (n ? `● ${n} ${T().running} · ` : "") + "AgentDeck";
 }
 
 /* 活动指示灯：2 秒内有输出 = 闪烁 */
@@ -661,7 +744,7 @@ function connect() {
 				const slot = paneSlot.get(m.id);
 				if (slot !== undefined) {
 					const meta = paneMeta.get(m.id);
-					paneEls[slot].exitedCode.textContent = `${meta ? meta.name : "进程"} 已退出${m.code != null ? `（code ${m.code}）` : ""}`;
+					paneEls[slot].exitedCode.textContent = T().exited(meta ? meta.name : T().procName, m.code);
 					paneEls[slot].exited.classList.add("show");
 				}
 				break;
@@ -689,7 +772,7 @@ function toast(msg, isErr) {
 }
 let _dlg = null;
 /** 自绘确认框：await confirmDialog({...}) → true/false。Enter 确认 / Esc 取消 / 点遮罩取消 */
-function confirmDialog({ title, message = "", confirmText = "确定", cancelText = "取消", danger = false }) {
+function confirmDialog({ title, message = "", confirmText = T().ok, cancelText = T().cancel, danger = false }) {
 	if (_dlg) _dlg.remove(); // 同一时刻只保留一个
 	return new Promise((resolve) => {
 		const mask = document.createElement("div");
@@ -733,7 +816,7 @@ let casterTarget = localStorage.getItem("ag:cast") || "all"; // "all" | 格位�
 let casterTimer = null;
 
 function casterTargetList() {
-	const list = [{ id: "all", label: "◎ 全部" }];
+	const list = [{ id: "all", label: T().all }];
 	for (let i = 0; i < SLOTS; i++) {
 		const pid = slotPane[i];
 		if (!pid) continue;
@@ -752,13 +835,13 @@ function renderCasterTargets() {
 		const b = document.createElement("button");
 		b.className = "ctarget" + (String(casterTarget) === t.id ? " sel" : "");
 		b.innerHTML = t.num != null ? `<span class="n">${t.num}</span>${esc(t.label)}` : esc(t.label);
-		b.title = t.id === "all" ? "广播到全部运行中的终端" : `发送到第 ${t.num} 格`;
+		b.title = t.id === "all" ? T().allTitle : T().oneTitle(t.num);
 		b.onclick = () => { casterTarget = t.id; localStorage.setItem("ag:cast", t.id); renderCasterTargets(); casterInput.focus(); };
 		casterTargets.append(b);
 	}
 	casterInput.placeholder = casterTarget === "all"
-		? "输入消息，Enter 广播到全部运行中的终端…"
-		: `输入消息，Enter 发送到第 ${Number(casterTarget) + 1} 格…`;
+		? T().phAll
+		: T().phOne(Number(casterTarget) + 1);
 }
 
 function openCaster(focus = true) {
@@ -810,10 +893,10 @@ function castSend(forceAll) {
 	let targets;
 	if (forceAll || casterTarget === "all") {
 		targets = list.filter((t) => t.id !== "all");
-		if (!targets.length) return toast("没有运行中的终端", true);
+		if (!targets.length) return toast(T().noRunning, true);
 	} else {
 		const t = list.find((x) => x.id === casterTarget);
-		if (!t) return toast("目标终端已停止", true);
+		if (!t) return toast(T().targetStopped, true);
 		targets = [t];
 	}
 	for (const t of targets) {
@@ -824,7 +907,7 @@ function castSend(forceAll) {
 		flashPane(slot);
 	}
 	casterInput.value = "";
-	toast(`已发送 → ${targets.map((t) => (t.num != null ? `${t.num}·${t.label}` : "全部")).join(" · ")}`);
+	toast(T().sentTo(targets.map((t) => (t.num != null ? `${t.num}·${t.label}` : T().all)).join(" · ")));
 }
 function flashPane(slot) {
 	const root = paneEls[slot].root;
@@ -837,6 +920,47 @@ function flashPane(slot) {
 const _reconcile = reconcile;
 reconcile = function () { _reconcile(); renderCasterTargets(); };
 
+/* ================= 应用语言 / 顶栏收起 ================= */
+function applyLang() {
+	const t = T();
+	document.documentElement.lang = lang === "zh" ? "zh-CN" : "en";
+	$("#thDark").textContent = t.dark;
+	$("#thLight").textContent = t.light;
+	$("#fontMinus").title = t.fontMinusTitle;
+	$("#fontPlus").title = t.fontPlusTitle;
+	$("#barCollapse").textContent = t.collapseBar;
+	$("#barShow").title = t.expandBar;
+	$("#casterIcon").title = t.casterTitle;
+	$("#casterSend").textContent = t.send;
+	$("#casterHint").innerHTML = `<b>Tab</b> ${t.hintTab} · <b>⌘/Ctrl+⏎</b> ${t.hintBc} · <b>Esc</b> ${t.hintEsc}`;
+	$("#connBanner").textContent = t.connLost;
+	$("#langZh").classList.toggle("on", lang === "zh");
+	$("#langEn").classList.toggle("on", lang === "en");
+	for (const el of paneEls) {
+		el.lh3.textContent = t.pickAgent;
+		el.cwdInput.placeholder = t.cwdPh;
+		el.goBtn.textContent = t.go;
+		el.lhint.textContent = t.launcherHint;
+		el.reBtn.textContent = t.reBtn;
+		el.clearBtn.textContent = t.clearBtn;
+		el.maxBtn.title = t.maxT;
+		el.restartBtn.title = t.restartT;
+		el.closeBtn.title = t.closeT;
+	}
+	for (let i = 0; i < SLOTS; i++) if (!slotPane[i]) renderAgentBtns(i);
+	renderCasterTargets();
+	updateTitle();
+}
+$("#langZh").onclick = () => { lang = "zh"; localStorage.setItem("ag:lang", lang); applyLang(); };
+$("#langEn").onclick = () => { lang = "en"; localStorage.setItem("ag:lang", lang); applyLang(); };
+
+let barCollapsed = localStorage.getItem("ag:barCollapsed") === "1";
+function applyBar() { document.body.classList.toggle("bar-collapsed", barCollapsed); }
+$("#barCollapse").onclick = () => { barCollapsed = true; localStorage.setItem("ag:barCollapsed", "1"); applyBar(); };
+$("#barShow").onclick = () => { barCollapsed = false; localStorage.setItem("ag:barCollapsed", "0"); applyBar(); };
+
+applyLang();
+applyBar();
 applyTheme();
 applyFontSize();
 updateTitle();
