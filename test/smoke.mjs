@@ -57,6 +57,7 @@ const checks = [
 	["标题元素就位", $$(".ptitle").length === 4, `got ${$$(".ptitle").length}`],
 	["色盘 6 色可选", $$(".swatch").length === 6, `got ${$$(".swatch").length}`],
 	["默认强调色已生效(蓝, body 级联)", window.document.body.style.getPropertyValue("--accent") === "#5ea2ff", window.document.body.style.getPropertyValue("--accent")],
+	["收起按钮结构完整(svg+文案)", (() => { const b = window.document.querySelector("#barShow"); return !!(b && b.querySelector("svg") && window.document.querySelector("#barShowText").textContent.length > 0); })(), ""],
 	["点击色块可切换强调色", (() => { const sw = [...window.document.querySelectorAll(".swatch")].find((b) => b.title === "teal"); sw.click(); return window.document.body.style.getPropertyValue("--accent") === "#2dd4bf"; })(), window.document.body.style.getPropertyValue("--accent")],
 ];
 

@@ -282,12 +282,16 @@ body {
 }
 
 body.bar-collapsed #topbar { display: none; }
+body.bar-collapsed #grid { padding-top: 52px; } /* 给悬浮按钮留出专属条，不再叠在窗格上 */
 #barShow {
-	position: fixed; top: 10px; right: 14px; z-index: 39; display: none;
-	height: 30px; padding: 0 14px; border-radius: 99px; font-size: 13px; color: var(--fg2);
-	background: color-mix(in srgb, var(--panel) 88%, transparent); backdrop-filter: blur(8px);
+	position: fixed; top: 10px; left: 50%; transform: translateX(-50%); z-index: 39; display: none;
+	height: 32px; padding: 0 16px 0 12px; border-radius: 99px; font-size: 12.5px; font-weight: 600; color: var(--fg2);
+	background: color-mix(in srgb, var(--panel) 90%, transparent); backdrop-filter: blur(10px);
 	border: 1px solid var(--line); box-shadow: var(--shadow);
+	align-items: center; justify-content: center; gap: 6px;
 }
+#barShow:hover { color: var(--fg); border-color: var(--accent); }
+#barShow svg { display: block; }
 body.bar-collapsed #barShow { display: inline-flex; }
 
 @media (max-width: 900px) {
@@ -321,7 +325,10 @@ body.bar-collapsed #barShow { display: inline-flex; }
 	<button class="tbtn" id="barCollapse">收起 ▾</button>
 </div>
 
-<button id="barShow">⌃</button>
+<button id="barShow">
+	<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 14l6-6 6 6"/></svg>
+	<span id="barShowText"></span>
+</button>
 
 <div id="grid"></div>
 
@@ -456,6 +463,7 @@ let agents = [];
 let recents = [];
 let pendingSpawn = []; // 记录用户点击启动的格位，回包时优先绑回原格
 const lastOut = new Map(); // paneId -> ts
+const paneMouse = new Map(); // paneId -> { mouse, sgr }：嗅探应用是否开启鼠标上报/SGR 格式
 
 for (let i = 0; i < SLOTS; i++) {
 	const root = document.createElement("div");
@@ -496,6 +504,9 @@ for (let i = 0; i < SLOTS; i++) {
 	// 交互
 	root.addEventListener("mousedown", (e) => {
 		if (e.target.closest("input")) return; // 输入框交互不抢焦点
+		/* 点在终端区之外（头部/留白）时阻止默认行为，否则浏览器会把焦点移到 body，
+		   掩掉我们刚设置的终端焦点，导致 Esc/键盘输入丢失 */
+		if (!e.target.closest(".term")) e.preventDefault();
 		focusSlot(i);
 	}, true);
 	el.ptitle.onclick = () => editTitle(i);
@@ -529,6 +540,27 @@ for (let i = 0; i < SLOTS; i++) {
 		const pid = slotPane[i];
 		if (pid) send({ t: "resize", id: pid, cols, rows });
 	});
+	// 滚轮补丁：xterm.js 在备用屏下不转发滚轮鼠标事件（getLinesScrolled===0 即丢弃），
+	// 自绘 TUI（pi/htop）依赖滚轮事件滚动，这里手动转发 SGR 序列；无鼠标上报时退化为箭头滚动
+	el.termBox.addEventListener("wheel", (e) => {
+		const pid = slotPane[i];
+		if (!pid) return;
+		const term = terms[i];
+		if (!term.buffer || term.buffer.active.type !== "alternate") return; // 正常缓冲区交给 xterm 原生滚动
+		e.preventDefault();
+		const st = paneMouse.get(pid) || {};
+		const lines = Math.min(6, Math.max(1, Math.round(Math.abs(e.deltaY) / 53)));
+		if (st.mouse && st.sgr) {
+			const rect = el.termBox.getBoundingClientRect();
+			const col = Math.min(term.cols, Math.max(1, Math.floor((e.clientX - rect.left) / rect.width * term.cols) + 1));
+			const row = Math.min(term.rows, Math.max(1, Math.floor((e.clientY - rect.top) / rect.height * term.rows) + 1));
+			const btn = e.deltaY < 0 ? 64 : 65;
+			send({ t: "input", id: pid, data: `\x1b[<${btn};${col};${row}M`.repeat(lines) });
+		} else {
+			send({ t: "input", id: pid, data: (e.deltaY < 0 ? "\x1b[A" : "\x1b[B").repeat(lines) });
+		}
+	}, { passive: false });
+
 	// 尺寸自适应
 	new ResizeObserver(() => {
 		try { fit.fit(); } catch {}
@@ -805,6 +837,13 @@ function connect() {
 			}
 			case "output": {
 				lastOut.set(m.id, Date.now());
+				/* 嗅探鼠标模式（模式串可能跨包分裂，启动序列通常整包到达，容忍边缘情况） */
+				const st = paneMouse.get(m.id) || { mouse: false, sgr: false };
+				if (/\x1b\[\?(1000|1002|1003)h/.test(m.data)) st.mouse = true;
+				if (/\x1b\[\?(1000|1002|1003)l/.test(m.data)) st.mouse = false;
+				if (m.data.includes("\x1b[?1006h")) st.sgr = true;
+				if (m.data.includes("\x1b[?1006l")) st.sgr = false;
+				paneMouse.set(m.id, st);
 				const slot = paneSlot.get(m.id);
 				if (slot !== undefined) terms[slot].write(m.data);
 				break;
@@ -1012,6 +1051,7 @@ function applyLang() {
 	$("#fontPlus").title = t.fontPlusTitle;
 	$("#barCollapse").textContent = t.collapseBar;
 	$("#barShow").title = t.expandBar;
+	$("#barShowText").textContent = t.expandBar;
 	$("#casterIcon").title = t.casterTitle;
 	$("#accentBtn").title = t.accentT;
 	$("#casterSend").textContent = t.send;
