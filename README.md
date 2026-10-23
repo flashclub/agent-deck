@@ -45,7 +45,8 @@ Agents are **auto-detected** from your machine (`command -v`): pi, Claude Code, 
   - `Enter` sends to the selected pane
   - `⌘/Ctrl+Enter` broadcasts to **all** running agents at once
   - receiving panes flash; `Esc` collapses and returns focus to the terminal
-- **English & Chinese UI** — one-click switch in the toolbar (auto-detected from your browser), every string localized.
+- **English & Chinese UI** — defaults to English, one-click 中/EN switch in the toolbar, every string localized.
+- **Editable pane titles** — click a pane's title to rename it; the full path slides in on hover. Titles and pane positions persist across refresh.
 - **Collapsible toolbar** — hide the top bar for maximum terminal real estate; a small ⌃ button brings it back.
 - **Light & dark themes** — tuned terminal palettes for both, persisted; adjustable terminal font size (12–24px).
 - **Per-pane controls** — click to focus, `⤢` maximize, `↻` restart, `✕` close; status dot pulses while output is flowing.

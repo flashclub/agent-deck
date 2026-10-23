@@ -119,8 +119,21 @@ body {
 	width: 22px; height: 22px; border-radius: 6px; background: var(--panel); border: 1px solid var(--line);
 	display: grid; place-items: center; font-size: 12.5px; color: var(--accent); flex: none; font-weight: 700;
 }
-.pname { font-weight: 700; font-size: 13.5px; }
-.pcwd { color: var(--fg3); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pname { color: var(--fg3); font-size: 12px; font-weight: 500; white-space: nowrap; flex: none; }
+.ptitle {
+	font-weight: 700; font-size: 13.5px; cursor: text; padding: 1px 5px; border-radius: 5px;
+	border: 1px dashed transparent; max-width: 34%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ptitle:hover { border-color: var(--line); background: var(--panel); }
+.ptitle-input {
+	font: inherit; font-weight: 700; font-size: 13.5px; color: var(--fg); background: var(--panel);
+	border: 1px solid var(--accent); border-radius: 5px; padding: 1px 6px; width: 190px; outline: none;
+}
+.pcwd {
+	color: var(--fg3); font-size: 12px; white-space: nowrap; overflow: hidden;
+	max-width: 0; opacity: 0; transition: max-width .3s ease, opacity .3s ease;
+}
+.pane-hd:hover .pcwd { max-width: 40vw; opacity: 1; }
 .pane-hd .grow { flex: 1; }
 .pact {
 	width: 28px; height: 26px; border-radius: 7px; color: var(--fg3); font-size: 13px;
@@ -378,6 +391,7 @@ const I18N = {
 		closeTitle: (n) => `关闭 ${n}？`, killMsg: (cwd) => `进程将被终止\n${cwd}`, killBtn: "终止并关闭",
 		restartTitle: (n) => `重新启动 ${n}？`, restartMsg: (cwd) => `当前进程将被终止\n${cwd}`, restartBtn: "重启",
 		ok: "确定", cancel: "取消", running: "运行",
+		clickToEdit: "点击编辑标题",
 	},
 	en: {
 		dark: "🌙 Dark", light: "☀️ Light",
@@ -406,9 +420,10 @@ const I18N = {
 		closeTitle: (n) => `Close ${n}?`, killMsg: (cwd) => `The process will be terminated\n${cwd}`, killBtn: "Terminate & close",
 		restartTitle: (n) => `Restart ${n}?`, restartMsg: (cwd) => `The current process will be terminated\n${cwd}`, restartBtn: "Restart",
 		ok: "OK", cancel: "Cancel", running: "running",
+		clickToEdit: "Click to edit title",
 	},
 };
-let lang = localStorage.getItem("ag:lang") || ((navigator.language || "").startsWith("zh") ? "zh" : "en");
+let lang = localStorage.getItem("ag:lang") || "en";
 const T = () => I18N[lang] || I18N.zh;
 
 /* ================= 窗格状态 ================= */
@@ -431,7 +446,7 @@ for (let i = 0; i < SLOTS; i++) {
 	root.innerHTML = `
 		<div class="pane-hd" style="display:none">
 			<span class="pdot"></span><span class="picon"></span>
-			<span class="pname"></span><span class="pcwd"></span><div class="grow"></div>
+			<span class="ptitle" tabindex="0"></span><span class="pname"></span><span class="pcwd"></span><div class="grow"></div>
 			<button class="pact max">⤢</button>
 			<button class="pact restart">↻</button>
 			<button class="pact danger close">✕</button>
@@ -461,6 +476,7 @@ for (let i = 0; i < SLOTS; i++) {
 		dot: root.querySelector(".pdot"),
 		icon: root.querySelector(".picon"),
 		name: root.querySelector(".pname"),
+		ptitle: root.querySelector(".ptitle"),
 		cwd: root.querySelector(".pcwd"),
 		termBox: root.querySelector(".term"),
 		launcher: root.querySelector(".launcher"),
@@ -480,7 +496,11 @@ for (let i = 0; i < SLOTS; i++) {
 	});
 
 	// 交互
-	root.addEventListener("mousedown", () => focusSlot(i), true);
+	el.ptitle.onclick = () => editTitle(i);
+	root.addEventListener("mousedown", (e) => {
+		if (e.target.closest("input")) return; // 输入框交互不抢焦点
+		focusSlot(i);
+	}, true);
 	const el = paneEls[i];
 	el.maxBtn.onclick = (e) => { e.stopPropagation(); toggleMax(i); };
 	el.restartBtn.onclick = (e) => { e.stopPropagation(); restartSlot(i); };
@@ -560,16 +580,62 @@ function launchFrom(slot) {
 function launch(slot, agentId, cwd) {
 	if (slotPane[slot]) return toast(T().paneBusy, true);
 	if (!pendingSpawn.includes(slot)) pendingSpawn.push(slot);
-	send({ t: "spawn", agentId, cwd: cwd || undefined });
+	send({ t: "spawn", agentId, cwd: cwd || undefined, slot });
 }
+function syncPaneHeader(slot) {
+	const pid = slotPane[slot];
+	if (!pid) return;
+	const meta = paneMeta.get(pid);
+	if (!meta) return;
+	const el = paneEls[slot];
+	el.icon.textContent = meta.icon;
+	el.name.textContent = meta.name;
+	if (!document.activeElement?.classList.contains("ptitle-input")) el.ptitle.textContent = meta.title;
+	el.cwd.textContent = meta.cwd;
+	el.cwd.title = meta.cwd;
+}
+
+/** 点击标题内联编辑，Enter/失焦保存，Esc 取消 */
+function editTitle(slot) {
+	const pid = slotPane[slot];
+	if (!pid) return;
+	const meta = paneMeta.get(pid);
+	const cur = meta ? meta.title : "";
+	const el = paneEls[slot];
+	const input = document.createElement("input");
+	input.className = "ptitle-input";
+	input.value = cur;
+	input.maxLength = 60;
+	el.ptitle.replaceWith(input);
+	input.focus();
+	input.select();
+	let settled = false;
+	const commit = (save) => {
+		if (settled) return;
+		settled = true;
+		const v = input.value.replace(/\s+/g, " ").trim();
+		input.replaceWith(el.ptitle);
+		if (save && v && v !== cur) {
+			el.ptitle.textContent = v;
+			if (meta) meta.title = v; // 乐观更新，服务端广播会确认
+			send({ t: "setTitle", id: pid, title: v });
+		} else {
+			el.ptitle.textContent = cur;
+		}
+	};
+	input.addEventListener("keydown", (e) => {
+		e.stopPropagation();
+		if (e.key === "Enter") { e.preventDefault(); commit(true); }
+		else if (e.key === "Escape") commit(false);
+	});
+	input.addEventListener("blur", () => commit(true));
+}
+
 function attachPane(pane, slot) {
 	slotPane[slot] = pane.id;
 	paneSlot.set(pane.id, slot);
 	const el = paneEls[slot];
-	el.icon.textContent = pane.icon;
-	el.name.textContent = pane.name;
-	el.cwd.textContent = pane.cwd;
-	el.cwd.title = pane.cwd;
+	syncPaneHeader(slot);
 	showLauncher(slot, false);
 	el.exited.classList.remove("show");
 	setDot(slot, "run");
@@ -627,7 +693,7 @@ async function restartSlot(slot) {
 	send({ t: "kill", id: pid });
 	detachSlot(slot);
 	if (!pendingSpawn.includes(slot)) pendingSpawn.push(slot);
-	send({ t: "spawn", agentId, cwd });
+	send({ t: "spawn", agentId, cwd, slot });
 }
 
 /* 放大 */
@@ -670,9 +736,14 @@ function reconcile() {
 	const list = [...paneMeta.values()].sort((a, b) => a.startedAt - b.startedAt);
 	for (const pane of list) {
 		if (paneSlot.has(pane.id)) continue;
-		// 优先绑回用户点击启动的格位，否则用第一个空格
-		let slot = pendingSpawn.find((s) => !slotPane[s]);
-		if (slot === undefined) slot = [0, 1, 2, 3].find((i) => !slotPane[i]);
+		// 优先回服务端记录的原格位，其次用户点击的格位，最后第一个空格
+		let slot;
+		if (Number.isInteger(pane.slot) && pane.slot >= 0 && pane.slot < SLOTS && !slotPane[pane.slot]) {
+			slot = pane.slot;
+		} else {
+			const pend = pendingSpawn.find((s) => !slotPane[s]);
+			slot = pend !== undefined ? pend : [0, 1, 2, 3].find((i) => !slotPane[i]);
+		}
 		if (slot === undefined) break;
 		attachPane(pane, slot);
 		pendingSpawn = pendingSpawn.filter((s) => s !== slot);
@@ -727,10 +798,10 @@ function connect() {
 				for (let i = 0; i < SLOTS; i++) if (!slotPane[i]) renderAgentBtns(i);
 				break;
 			case "panes": {
-				const seen = new Set();
 				paneMeta.clear();
-				for (const p of m.panes || []) { paneMeta.set(p.id, p); seen.add(p.id); }
+				for (const p of m.panes || []) paneMeta.set(p.id, p);
 				reconcile();
+				for (let i = 0; i < SLOTS; i++) syncPaneHeader(i);
 				updateTitle();
 				break;
 			}
@@ -946,6 +1017,7 @@ function applyLang() {
 		el.maxBtn.title = t.maxT;
 		el.restartBtn.title = t.restartT;
 		el.closeBtn.title = t.closeT;
+		el.ptitle.title = t.clickToEdit;
 	}
 	for (let i = 0; i < SLOTS; i++) if (!slotPane[i]) renderAgentBtns(i);
 	renderCasterTargets();

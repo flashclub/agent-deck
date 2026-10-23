@@ -45,7 +45,7 @@ function detectAgents() {
 		{ id: "codex", name: "Codex", icon: "◆", desc: "openai codex cli", file: "codex", args: [] },
 		{ id: "gemini", name: "Gemini", icon: "◈", desc: "gemini cli", file: "gemini", args: [] },
 		{ id: "aider", name: "Aider", icon: "⌘", desc: "aider ai pair", file: "aider", args: [] },
-		{ id: "shell", name: "终端", icon: ">_", desc: "zsh 登录 shell", file: process.env.SHELL || "/bin/zsh", args: ["-l"] },
+		{ id: "shell", name: "Shell", icon: ">_", desc: "zsh login shell", file: process.env.SHELL || "/bin/zsh", args: ["-l"] },
 	];
 	const found = [];
 	for (const a of list) {
@@ -81,17 +81,17 @@ let lastCwd = process.cwd();
 function paneMeta(p) {
 	return {
 		id: p.id, agentId: p.agentId, name: p.name, icon: p.icon,
-		cwd: p.cwd, title: p.title, running: p.proc !== null,
+		cwd: p.cwd, title: p.title, slot: p.slot, running: p.proc !== null,
 		exitCode: p.exitCode, startedAt: p.startedAt, cols: p.cols, rows: p.rows,
 	};
 }
 
-function spawnPane({ agentId, cwd }) {
+function spawnPane({ agentId, cwd, slot }) {
 	const agent = AGENTS.find((a) => a.id === agentId);
-	if (!agent) throw new Error(`未知智能体: ${agentId}`);
+	if (!agent) throw new Error(`Unknown agent: ${agentId}`);
 	const absCwd = path.resolve(cwd || lastCwd || os.homedir());
 	if (!fs.existsSync(absCwd) || !fs.statSync(absCwd).isDirectory()) {
-		throw new Error(`目录不存在: ${absCwd}`);
+		throw new Error(`Directory not found: ${absCwd}`);
 	}
 	lastCwd = absCwd;
 
@@ -99,6 +99,7 @@ function spawnPane({ agentId, cwd }) {
 	const pane = {
 		id, agentId: agent.id, name: agent.name, icon: agent.icon,
 		cwd: absCwd, title: `${agent.name} · ${path.basename(absCwd)}`,
+		slot: Number.isInteger(slot) && slot >= 0 && slot <= 3 ? slot : null,
 		proc: null, buf: [], bufLen: 0, exitCode: null,
 		cols: 100, rows: 28, startedAt: Date.now(),
 	};
@@ -211,8 +212,19 @@ wss.on("connection", (ws) => {
 					});
 					break;
 				case "spawn": {
-					const pane = spawnPane({ agentId: m.agentId, cwd: m.cwd });
+					const pane = spawnPane({ agentId: m.agentId, cwd: m.cwd, slot: m.slot });
 					ws.send(JSON.stringify({ t: "spawned-yours", id: pane.id }));
+					break;
+				}
+				case "setTitle": {
+					const p = panes.get(m.id);
+					if (p) {
+						const title = String(m.title ?? "").replace(/\s+/g, " ").trim().slice(0, 60);
+						if (title) {
+							p.title = title;
+							broadcast({ t: "panes", panes: [...panes.values()].map(paneMeta) });
+						}
+					}
 					break;
 				}
 				case "input": {
@@ -296,6 +308,6 @@ for (const sig of ["SIGINT", "SIGTERM"]) {
 
 server.listen(PORT, HOST, () => {
 	console.log(`AgentDeck`);
-	console.log(`  地址: http://${HOST}:${PORT}`);
-	console.log(`  可用智能体: ${AGENTS.map((a) => a.name).join(" / ")}`);
+	console.log(`  URL:     http://${HOST}:${PORT}`);
+	console.log(`  Agents:  ${AGENTS.map((a) => a.name).join(" / ")}`);
 });
