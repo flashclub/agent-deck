@@ -14,6 +14,11 @@
 Stop juggling terminal tabs. AgentDeck gives you a 2×2 grid of real terminals in your browser — launch [pi](https://pi.dev), [Claude Code](https://claude.com/product/claude-code), [Codex](https://openai.com/codex), Gemini CLI, Aider, or a plain shell in any pane, and drive them all from one page.
 
 <p align="center">
+  <img src="docs/img/demo.gif" width="880" alt="AgentDeck demo — broadcast to panes, switch theme & accent" />
+</p>
+<p align="center"><sub>30-second demo: caster dock → Tab-target send → theme & accent switch</sub></p>
+
+<p align="center">
   <img src="docs/img/hero-dark.png" width="880" alt="AgentDeck — dark theme, four agents running side by side" />
 </p>
 <p align="center"><sub>Dark theme · pi + Claude Code + two shells · ⌨ caster dock at the bottom</sub></p>

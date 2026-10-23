@@ -14,6 +14,11 @@
 别再来回切终端标签了。AgentDeck 在浏览器里给你一个 2×2 的真终端矩阵——任意窗格启动 [pi](https://pi.dev)、[Claude Code](https://claude.com/product/claude-code)、[Codex](https://openai.com/codex)、Gemini CLI、Aider 或普通 shell，一页全览、统一指挥。
 
 <p align="center">
+  <img src="docs/img/demo.gif" width="880" alt="AgentDeck 演示" />
+</p>
+<p align="center"><sub>演示：指挥条 → Tab 选目标发送 → 切主题/强调色</sub></p>
+
+<p align="center">
   <img src="docs/img/hero-zh.png" width="880" alt="AgentDeck 中文界面" />
 </p>
 <p align="center"><sub>中文界面 · 四格并行 · 底部指挥条悬停展开</sub></p>
