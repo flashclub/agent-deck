@@ -18,12 +18,15 @@ import crypto from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { WebSocketServer } from "ws";
 import pty from "node-pty";
+import { syncReplayHead } from "./lib/term-sync.mjs";
 
 const __dirname = path.dirname(new URL(import.meta.url).pathname);
 const PORT = Number(process.env.AG_PORT || process.argv[2] || 7788);
 const HOST = process.env.AG_HOST || "127.0.0.1";
 const PI_SESSIONS_ROOT = path.join(os.homedir(), ".pi/agent/sessions");
 const BUF_CAP = 160 * 1024; // 每窗格回放缓冲上限（字符）
+
+
 /* 最近目录扫描开关：AG_RECENTS=0 可完全关闭（不读取 pi 会话库，零磁盘扫描） */
 const ENABLE_RECENTS = process.env.AG_RECENTS !== "0";
 
@@ -31,9 +34,22 @@ const ENABLE_RECENTS = process.env.AG_RECENTS !== "0";
 /* 智能体清单（自动探测本机可用性）                                      */
 /* ------------------------------------------------------------------ */
 
+/* 探测/子进程共用 PATH：合并常见安装位置，避免从 Finder/launchd 启动时
+   （进程 PATH 只有系统默认值）探测不到 ~/.local/bin 等处的 CLI */
+const EXTRA_PATH = [
+	"/usr/local/bin",
+	"/opt/homebrew/bin",
+	path.join(os.homedir(), ".local/bin"),
+	path.join(os.homedir(), ".claude/local/bin"),
+	path.join(os.homedir(), ".pi/agent/bin"),
+].join(":");
+const SEARCH_PATH = [process.env.PATH, EXTRA_PATH].filter(Boolean).join(":");
+
 function which(cmd) {
 	try {
-		return execFileSync("/bin/sh", ["-c", `command -v ${JSON.stringify(cmd)}`], { encoding: "utf8" }).trim();
+		return execFileSync("/bin/sh", ["-c", `command -v ${JSON.stringify(cmd)}`], {
+			encoding: "utf8", env: { ...process.env, PATH: SEARCH_PATH },
+		}).trim();
 	} catch {
 		return "";
 	}
@@ -61,15 +77,7 @@ function detectAgents() {
 	return found;
 }
 const AGENTS = detectAgents();
-
-/* 子进程 PATH：合并常见安装位置，避免从 Finder/launchd 启动时找不到命令 */
-const CHILD_PATH = [
-	process.env.PATH,
-	"/usr/local/bin",
-	"/opt/homebrew/bin",
-	path.join(os.homedir(), ".local/bin"),
-	path.join(os.homedir(), ".pi/agent/bin"),
-].filter(Boolean).join(":");
+const CHILD_PATH = SEARCH_PATH;
 
 /* ------------------------------------------------------------------ */
 /* 窗格（PTY）管理                                                      */
@@ -126,7 +134,7 @@ function spawnPane({ agentId, cwd, slot, worktree, reuseWt }) {
 		id, agentId: agent.id, name: agent.name, icon: agent.icon,
 		cwd: absCwd, wt, wtDropped, title: `${agent.name} · ${path.basename(absCwd)}`,
 		slot: Number.isInteger(slot) && slot >= 0 && slot <= 3 ? slot : null,
-		proc: null, buf: [], bufLen: 0, exitCode: null,
+		proc: null, buf: [], bufLen: 0, exitCode: null, seq: 0, trimmed: false,
 		cols: 100, rows: 28, startedAt: Date.now(),
 	};
 
@@ -156,8 +164,9 @@ function spawnPane({ agentId, cwd, slot, worktree, reuseWt }) {
 		while (pane.bufLen > BUF_CAP && pane.buf.length > 1) {
 			pane.bufLen -= pane.buf[0].length;
 			pane.buf.shift();
+			pane.trimmed = true;
 		}
-		broadcast({ t: "output", id: pane.id, data });
+		broadcast({ t: "output", id: pane.id, data, seq: ++pane.seq });
 	});
 	proc.onExit(({ exitCode }) => {
 		pane.proc = null;
@@ -492,7 +501,13 @@ wss.on("connection", (ws) => {
 				}
 				case "replay": {
 					const p = panes.get(m.id);
-					if (p && ws.readyState === 1) ws.send(JSON.stringify({ t: "output", id: p.id, data: p.buf.join("") }));
+					if (p && ws.readyState === 1) {
+						let data = p.buf.join("");
+						/* 裁剪过的缓冲可能从序列中间开始：同步到首个完整序列之后，
+						   并带上 upto（缓冲已包含到的 seq），客户端据此丢弃重复的实时块 */
+						if (p.trimmed) data = syncReplayHead(data);
+						ws.send(JSON.stringify({ t: "output", id: p.id, data, upto: p.seq }));
+					}
 					break;
 				}
 				case "termTheme":
