@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8" />
+	<style>
+		body { width: 320px; margin: 0; padding: 14px; font: 13px/1.5 -apple-system, "Segoe UI", sans-serif; color: #1d222c; background: #fff; }
+		h3 { margin: 0 0 10px; font-size: 14px; display: flex; align-items: center; gap: 7px; }
+		.dot { width: 9px; height: 9px; border-radius: 50%; background: #c33; flex: none; }
+		.dot.on { background: #2c9e5f; box-shadow: 0 0 6px #2c9e5f; }
+		button { margin-top: 10px; width: 100%; padding: 8px; border: 0; border-radius: 8px; background: #eee; color: #333; font-weight: 600; cursor: pointer; }
+		button:disabled { opacity: .5; cursor: default; }
+		.state { margin-top: 10px; padding: 8px 10px; border-radius: 8px; background: #f4f5f7; font-size: 12px; color: #555; }
+		.state b { color: #111; }
+		.hint { margin-top: 10px; font-size: 11.5px; color: #888; }
+		code { background: #f0f1f3; padding: 1px 4px; border-radius: 4px; font-size: 11px; }
+	</style>
+</head>
+<body>
+	<h3><span class="dot" id="dot"></span> AgentDeck Bridge</h3>
+	<div class="state" id="state">Checking…</div>
+	<button id="grant">Grant access to all sites…</button>
+	<button id="docs">📖 浏览器工具文档</button>
+	<div class="hint">
+		Pair from the AgentDeck web UI: click <b>Connect browser</b> in the top bar, then approve the popup here.
+		Screenshots are saved to <code>~/.agent-deck/shots/</code>.
+	</div>
+	<script src="popup.js"></script>
+</body>
+</html>

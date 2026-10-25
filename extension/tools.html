@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+	<meta charset="utf-8" />
+	<title>AgentDeck Bridge — 浏览器工具文档</title>
+	<style>
+		:root { --bg: #161a22; --panel: #1e242e; --panel2: #242b37; --line: #303947; --fg: #eef1f6; --fg2: #aab4c4; --fg3: #7b8698; --accent: #4c6ef5; --green: #2c9e5f; }
+		* { box-sizing: border-box; }
+		body { margin: 0; padding: 32px 20px 64px; font: 14px/1.7 -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; color: var(--fg); background: var(--bg); }
+		.wrap { max-width: 860px; margin: 0 auto; }
+		h1 { font-size: 22px; margin: 0 0 6px; display: flex; align-items: center; gap: 10px; }
+		h1 .mark { width: 30px; height: 30px; border-radius: 8px; background: var(--accent); color: #fff; display: grid; place-items: center; font-size: 16px; flex: none; }
+		.sub { color: var(--fg3); font-size: 13px; margin-bottom: 28px; }
+		h2 { font-size: 16px; margin: 36px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+		h3 { font-size: 14px; margin: 22px 0 8px; }
+		p, li { color: var(--fg2); font-size: 13.5px; }
+		code { background: var(--panel2); padding: 1px 6px; border-radius: 5px; font-size: 12.5px; color: #c8d3f5; font-family: "SF Mono", Menlo, Consolas, monospace; }
+		pre { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; overflow-x: auto; font-size: 12.5px; line-height: 1.6; }
+		pre code { background: none; padding: 0; }
+		.chain { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; font-size: 12.5px; color: var(--fg2); overflow-x: auto; white-space: nowrap; }
+		.tool { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; margin: 14px 0; }
+		.tool .name { font-family: "SF Mono", Menlo, Consolas, monospace; font-weight: 700; font-size: 14.5px; color: #8fa4ff; }
+		.tool .desc { margin: 4px 0 10px; color: var(--fg2); font-size: 13px; }
+		table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin: 8px 0 10px; }
+		th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+		th { color: var(--fg3); font-weight: 600; }
+		td:first-child code { color: #ffd479; }
+		.req { color: #ff8787; font-size: 11px; }
+		.opt { color: var(--fg3); font-size: 11px; }
+		.tag { display: inline-block; padding: 1px 8px; border-radius: 20px; font-size: 11px; margin-left: 8px; vertical-align: 2px; }
+		.tag.read { background: #16324a; color: #74c0fc; }
+		.tag.write { background: #3b2a16; color: #ffd479; }
+		.badge { display: inline-block; background: #16324a; color: #74c0fc; border-radius: 6px; padding: 2px 8px; font-size: 12px; margin: 2px 4px 2px 0; font-family: "SF Mono", Menlo, monospace; }
+	</style>
+</head>
+<body>
+	<div class="wrap">
+		<h1><span class="mark">⬡</span>AgentDeck Bridge — 浏览器工具文档</h1>
+		<div class="sub">AgentDeck 里的 coding agent 通过这 7 个工具操作你的浏览器。本页 = 全部能力清单 + 参数 + 示例。</div>
+
+		<h2>调用链(一句话版)</h2>
+		<div class="chain">agent 说人话 → pi/Claude 选工具(MCP)→ mcp.mjs → server.mjs(:7788)→ 本扩展 → Chrome</div>
+		<p>你只需要在 AgentDeck 窗格里说「打开 xx 页面截图看看」;模型读过下面的工具描述,自己决定调哪个。</p>
+
+		<h2>接入方式</h2>
+		<p>agent 侧注册一次(全局生效):</p>
+		<pre><code>pi mcp add agentdeck-browser -- node /path/to/agent-deck/mcp.mjs
+claude mcp add agentdeck-browser -- node /path/to/agent-deck/mcp.mjs
+codex mcp add agentdeck-browser -- node /path/to/agent-deck/mcp.mjs</code></pre>
+		<p>调试/手工场景也可以直接 curl(与 MCP 等价,同一入口):</p>
+		<pre><code>curl -s http://127.0.0.1:7788/api/browser/cmd -d '{"op":"navigate","args":{"url":"https://example.com"}}'</code></pre>
+
+		<h2>7 个工具</h2>
+
+		<div class="tool">
+			<span class="name">browser_navigate</span><span class="tag write">写</span>
+			<div class="desc">打开 URL 并等待页面加载完成(最长 8 秒)。返回 tabId / url / title。标签开在专属「AgentDeck」标签组里,复用组内已有工作标签。</div>
+			<table>
+				<tr><th>参数</th><th>类型</th><th>说明</th></tr>
+				<tr><td><code>url</code></td><td>string <span class="req">必填</span></td><td>要打开的绝对地址</td></tr>
+				<tr><td><code>tabId</code></td><td>number <span class="opt">可选</span></td><td>显式指定目标标签页</td></tr>
+			</table>
+			<pre><code>curl -s http://127.0.0.1:7788/api/browser/cmd -d '{"op":"navigate","args":{"url":"https://x.com"}}'</code></pre>
+		</div>
+
+		<div class="tool">
+			<span class="name">browser_screenshot</span><span class="tag read">读</span>
+			<div class="desc">对当前工作标签整页截 PNG。两张交付:图片内联返回(多模态模型直接"看见")+ 落盘 <code>~/.agent-deck/shots/</code>(路径在结果里,可 <code>open</code> 查看)。</div>
+			<table>
+				<tr><th>参数</th><th>类型</th><th>说明</th></tr>
+				<tr><td><code>tabId</code></td><td>number <span class="opt">可选</span></td><td>显式指定目标标签页</td></tr>
+			</table>
+			<pre><code>curl -s http://127.0.0.1:7788/api/browser/cmd -d '{"op":"screenshot"}'
+# → {"ok":true,"path":"/Users/you/.agent-deck/shots/shot-....png",...}</code></pre>
+		</div>
+
+		<div class="tool">
+			<span class="name">browser_click</span><span class="tag write">写</span>
+			<div class="desc">按 CSS 选择器点击元素,点击前自动滚动到可视区。返回被点元素的标签与文本片段。</div>
+			<table>
+				<tr><th>参数</th><th>类型</th><th>说明</th></tr>
+				<tr><td><code>selector</code></td><td>string <span class="req">必填</span></td><td>CSS 选择器,如 <code>#submit</code>、<code>a.search</code></td></tr>
+				<tr><td><code>tabId</code></td><td>number <span class="opt">可选</span></td><td>显式指定目标标签页</td></tr>
+			</table>
+			<pre><code>curl -s http://127.0.0.1:7788/api/browser/cmd -d '{"op":"click","args":{"selector":"#submit"}}'</code></pre>
+		</div>
+
+		<div class="tool">
+			<span class="name">browser_eval_js</span><span class="tag write">写</span>
+			<div class="desc">在页面主世界执行任意 JS,支持 await Promise,返回可 JSON 序列化的值。万能逃生舱:拿 DOM 数据、查接口状态都靠它。</div>
+			<table>
+				<tr><th>参数</th><th>类型</th><th>说明</th></tr>
+				<tr><td><code>expression</code></td><td>string <span class="req">必填</span></td><td>JS 表达式,如 <code>document.title</code></td></tr>
+				<tr><td><code>tabId</code></td><td>number <span class="opt">可选</span></td><td>显式指定目标标签页</td></tr>
+			</table>
+			<pre><code>curl -s http://127.0.0.1:7788/api/browser/cmd -d '{"op":"eval_js","args":{"expression":"document.querySelectorAll(\"a\").length"}}'</code></pre>
+		</div>
+
+		<div class="tool">
+			<span class="name">browser_read_text</span><span class="tag read">读</span>
+			<div class="desc">读取页面可见文本(body.innerText),适合让 agent 快速理解页面内容。默认上限 4 万字符。</div>
+			<table>
+				<tr><th>参数</th><th>类型</th><th>说明</th></tr>
+				<tr><td><code>limit</code></td><td>number <span class="opt">可选</span></td><td>字符上限(默认 40000,硬顶 200000)</td></tr>
+				<tr><td><code>tabId</code></td><td>number <span class="opt">可选</span></td><td>显式指定目标标签页</td></tr>
+			</table>
+			<pre><code>curl -s http://127.0.0.1:7788/api/browser/cmd -d '{"op":"read_text","args":{"limit":10000}}'</code></pre>
+		</div>
+
+		<div class="tool">
+			<span class="name">browser_tabs_list</span><span class="tag read">读</span>
+			<div class="desc">列出当前所有标签页(id / title / url / active / agentGroup)。<code>agentGroup:true</code> 表示该标签在专属 AgentDeck 组内。</div>
+			<table><tr><th>参数</th><th>类型</th><th>说明</th></tr><tr><td colspan="3">无参数</td></tr></table>
+			<pre><code>curl -s http://127.0.0.1:7788/api/browser/cmd -d '{"op":"tabs_list"}'</code></pre>
+		</div>
+
+		<div class="tool">
+			<span class="name">browser_close_tab</span><span class="tag write">写</span>
+			<div class="desc">关闭标签页,默认关 agent 自己的工作标签。组空了会自动消失,下次操作自动重建。</div>
+			<table>
+				<tr><th>参数</th><th>类型</th><th>说明</th></tr>
+				<tr><td><code>tabId</code></td><td>number <span class="opt">可选</span></td><td>缺省 = 关 agent 工作标签</td></tr>
+			</table>
+			<pre><code>curl -s http://127.0.0.1:7788/api/browser/cmd -d '{"op":"close_tab"}'</code></pre>
+		</div>
+
+		<h2>标签页隔离规则(Codex 式)</h2>
+		<ul>
+			<li>agent 拥有<b>专属窗口</b>(首次操作自动创建,不抢焦点),窗口内再设专属标签组<b>「AgentDeck」</b>(紫色)。你自己的窗口永远不会有 agent 的标签,也永远不会看到调试横幅</li>
+			<li>调试横幅是<b>窗口级</b>的——正因为任务被关在独立窗口,横幅只出现在 agent 自己的窗口里;且只有 <code>browser_eval_js</code>/<code>browser_screenshot</code> 瞬间触发,用完即断</li>
+			<li>目标解析顺序:显式 <code>tabId</code> → 组内已有工作标签 → 在专属组里新建</li>
+			<li>想让它操作某个已有页面:让它先 <code>browser_tabs_list</code> 找到 id 再指定;或把那个标签拖进 AgentDeck 窗口的组里</li>
+			<li>窗口/组被关闭后,下次操作自动重建;标签组标题与颜色可随时在浏览器里自定义</li>
+		</ul>
+
+		<h2>安全边界</h2>
+		<ul>
+			<li>配对:AgentDeck UI 点「连接浏览器」→ 浏览器弹窗确认,token 自动管理;nonce 一次性、2 分钟过期</li>
+			<li>网页隔离:插件信道在握手层拒绝一切网页 Origin,恶意网页无法连接或抢答配对</li>
+			<li>可见性：只有 <code>browser_eval_js</code> 和 <code>browser_screenshot</code> 两个操作会短暂触发 Chrome「已开始调试」横幅（用完立即断开，闪现即逝）；导航/点击/读文本全程无横幅</li>
+			<li>尚缺(P2):域名防火墙、专用 Profile、敏感操作人工确认、审计日志——请只在信任的 agent 任务上使用</li>
+		</ul>
+
+		<h2>能力速览</h2>
+		<p>
+			<span class="badge">browser_navigate</span><span class="badge">browser_screenshot</span><span class="badge">browser_click</span><span class="badge">browser_eval_js</span><span class="badge">browser_read_text</span><span class="badge">browser_tabs_list</span><span class="badge">browser_close_tab</span>
+		</p>
+	</div>
+</body>
+</html>

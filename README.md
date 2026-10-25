@@ -60,6 +60,8 @@ Agents are **auto-detected** from your machine (`command -v`): pi, Claude Code, 
 - **Collapsible toolbar** — hide the top bar for maximum terminal real estate; a small ⌃ button brings it back.
 - **Light & dark themes + six accent colors** — tuned terminal palettes (cursor follows your accent), persisted; adjustable terminal font size (12–24px).
 - **Per-pane controls** — click to focus, `⤢` maximize, `↻` restart, `✕` close; status dot pulses while output is flowing.
+- **Isolated worktrees** — tick “Isolated worktree” in the launcher to run a pane in its own git worktree (`ad/wt*` branch, created outside your repo under `~/.agent-deck/worktrees`). When closing the pane you choose: **merge** the changes back, **discard** them, or **keep** the worktree for later. Restarts reuse the same worktree. Parallel agents on one repo never step on each other.
+- **Browser bridge (experimental)** — pair the bundled Chrome extension (`extension/`) and any pane's agent can drive your real browser: navigate, click, eval JS, read pages, and screenshot (returned inline to multimodal agents, also saved to `~/.agent-deck/shots/`). Token-paired, localhost-only. Register `mcp.mjs` as an MCP server (`pi mcp add agentdeck-browser -- node …/mcp.mjs`) for native tool calls, or just `curl` the HTTP API — see `extension/README.md`.
 - **Smart cwd picker** — optionally offers recent project directories read from pi's local session library (see Privacy).
 - **Custom dialogs & toasts** — no native `alert()` anywhere.
 
@@ -98,6 +100,7 @@ pi / claude / codex / $SHELL  — full TUI agents in their own cwd
 - Nothing leaves your machine. The server binds to `127.0.0.1` and makes no outbound requests.
 - **No paths are baked into the repo.** The "recent directories" picker reads pi's local session library (`~/.pi/agent/sessions`) on *your* machine at runtime — everyone who clones sees only their own history.
 - Don't want that? Run with `AG_RECENTS=0` to disable the scan entirely.
+- Isolated worktrees live under `~/.agent-deck/worktrees/` and are cleaned up automatically on merge/discard. Kept worktrees can be reclaimed with `git worktree prune` or by deleting that folder.
 
 ## Security
 

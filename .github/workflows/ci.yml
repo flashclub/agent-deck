@@ -17,3 +17,11 @@ jobs:
       - run: node --check server.mjs
       - name: UI smoke test (jsdom)
         run: node test/smoke.mjs
+      - name: Worktree e2e test
+        run: node test/worktree.mjs
+      - name: Browser bridge protocol test
+        run: node test/browser-bridge.mjs
+      - name: Browser pair flow test
+        run: node test/browser-pair.mjs
+      - name: MCP bridge test
+        run: node test/mcp-bridge.mjs

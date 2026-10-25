@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8" />
+	<style>
+		body { margin: 0; padding: 18px 20px; font: 13.5px/1.6 -apple-system, "Segoe UI", "PingFang SC", sans-serif; color: #1d222c; background: #fff; user-select: none; }
+		h3 { margin: 0 0 8px; font-size: 15px; display: flex; align-items: center; gap: 8px; }
+		.mark { width: 24px; height: 24px; border-radius: 7px; background: #eef1ff; color: #4c6ef5; display: grid; place-items: center; font-size: 14px; flex: none; }
+		p { margin: 6px 0 0; color: #555; font-size: 12.5px; }
+		ul { margin: 8px 0 14px; padding-left: 18px; color: #444; font-size: 12.5px; }
+		.row { display: flex; gap: 10px; margin-top: 14px; }
+		button { flex: 1; padding: 9px; border: 0; border-radius: 9px; font: inherit; font-weight: 600; cursor: pointer; }
+		#deny { background: #f0f1f3; color: #444; }
+		#approve { background: #4c6ef5; color: #fff; }
+		code { background: #f0f1f3; padding: 1px 5px; border-radius: 4px; font-size: 11.5px; }
+	</style>
+</head>
+<body>
+	<h3><span class="mark">⬡</span>AgentDeck 请求连接此浏览器</h3>
+	<p>本机 <code>127.0.0.1</code> 上的 AgentDeck 想通过本扩展操作浏览器：</p>
+	<ul>
+		<li>打开 / 关闭网页、点击元素、执行页面 JS</li>
+		<li>截图（保存到本机 <code>~/.agent-deck/shots/</code>）</li>
+		<li>读取页面可见文本</li>
+	</ul>
+	<div class="row">
+		<button id="deny">拒绝</button>
+		<button id="approve">同意连接</button>
+	</div>
+	<script src="consent.js"></script>
+</body>
+</html>

@@ -55,6 +55,8 @@ node server.mjs
 - **顶栏可收起** — 隐藏顶栏榨干屏幕空间，右上角 ⌃ 小按钮随时唤回
 - **明暗双主题 + 六色强调色** — 深色非死黑、浅色高对比，终端光标跟随强调色；字号 12–24px 可调
 - **窗格级控制** — 点击聚焦、`⤢` 放大独占、`↻` 重启、`✕` 关闭；输出流动时状态灯闪烁
+- **独立 worktree 隔离** — 启动器勾选「独立 worktree」，窗格即可跑在专属 git worktree（`ad/wt*` 分支，建在仓库外的 `~/.agent-deck/worktrees/`）。关闭时三选一：**合并回主分支**、**丢弃改动**、**保留待查**；重启复用同一 worktree。多个智能体并行改同一个仓库不再互相踩踏
+- **浏览器桥接（实验性）** — 配套 Chrome 扩展（`extension/`）让任意窗格的智能体驱动你的真实浏览器：导航、点击、执行 JS、读页面、截图（内联返回给多模态智能体，同时落盘 `~/.agent-deck/shots/`）。token 配对、仅限本机。把 `mcp.mjs` 注册为 MCP server（`pi mcp add agentdeck-browser -- node …/mcp.mjs`）即可原生调用工具，或直接 `curl` HTTP API——见 `extension/README.md`
 - **智能目录选择** — 可选读取 pi 本地会话库提供最近项目目录（见隐私说明）
 - **自绘对话框与 toast** — 全程无原生 `alert()`
 
@@ -93,6 +95,7 @@ pi / claude / codex / $SHELL  — 各自 cwd 里的完整 TUI
 - 数据不出本机：服务只绑定 `127.0.0.1`，无任何外发请求
 - **仓库不含任何人的路径。**「最近目录」是运行时读取你本机 pi 会话库（`~/.pi/agent/sessions`）得到的——谁 clone 就看到谁自己的记录
 - 不想要这个功能？`AG_RECENTS=0` 启动即可完全关闭扫描
+- worktree 隔离区位于 `~/.agent-deck/worktrees/`，合并/丢弃时自动清理；「保留」的工作区可手动删除或 `git worktree prune` 回收
 
 ## 安全
 

@@ -1,0 +1,11 @@
+{
+	"manifest_version": 3,
+	"name": "AgentDeck Bridge",
+	"version": "0.1.0",
+	"description": "Let local AI coding agents (AgentDeck) drive this browser: navigate, click, screenshot, read pages. Local-only, token-paired.",
+	"minimum_chrome_version": "116",
+	"permissions": ["debugger", "tabs", "tabGroups", "scripting", "storage", "alarms"],
+	"optional_host_permissions": ["<all_urls>"],
+	"background": { "service_worker": "background.js" },
+	"action": { "default_popup": "popup.html" }
+}

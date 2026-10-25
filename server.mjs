@@ -14,6 +14,7 @@ import fs from "node:fs";
 import fsp from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
+import crypto from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { WebSocketServer } from "ws";
 import pty from "node-pty";
@@ -83,6 +84,7 @@ function paneMeta(p) {
 		id: p.id, agentId: p.agentId, name: p.name, icon: p.icon,
 		cwd: p.cwd, title: p.title, slot: p.slot, running: p.proc !== null,
 		exitCode: p.exitCode, startedAt: p.startedAt, cols: p.cols, rows: p.rows,
+		wt: p.wt, wtDropped: p.wtDropped,
 	};
 }
 
@@ -99,7 +101,7 @@ const oscColorReply = (which) => {
 	return `\x1b]${which};rgb:${c.map((v) => (v * 257).toString(16).padStart(4, "0")).join("/")}\x07`;
 };
 
-function spawnPane({ agentId, cwd, slot }) {
+function spawnPane({ agentId, cwd, slot, worktree, reuseWt }) {
 	const agent = AGENTS.find((a) => a.id === agentId);
 	if (!agent) throw new Error(`Unknown agent: ${agentId}`);
 	const absCwd = path.resolve(cwd || lastCwd || os.homedir());
@@ -108,10 +110,21 @@ function spawnPane({ agentId, cwd, slot }) {
 	}
 	lastCwd = absCwd;
 
+	/* worktree 隔离：restart 传 reuseWt 复用原工作区，避免每次重启累积新分支 */
+	let wt = null, wtDropped = false, ptyCwd = absCwd;
+	if (reuseWt && reuseWt.wtPath && fs.existsSync(reuseWt.wtPath)) {
+		wt = reuseWt;
+		ptyCwd = reuseWt.wtPath;
+	} else if (worktree) {
+		const created = createWorktree(absCwd);
+		if (created) { wt = created; ptyCwd = created.wtPath; }
+		else wtDropped = true; /* 非 git 仓库：降级为普通目录 */
+	}
+
 	const id = `p${Date.now().toString(36)}${(++paneSeq).toString(36)}`;
 	const pane = {
 		id, agentId: agent.id, name: agent.name, icon: agent.icon,
-		cwd: absCwd, title: `${agent.name} · ${path.basename(absCwd)}`,
+		cwd: absCwd, wt, wtDropped, title: `${agent.name} · ${path.basename(absCwd)}`,
 		slot: Number.isInteger(slot) && slot >= 0 && slot <= 3 ? slot : null,
 		proc: null, buf: [], bufLen: 0, exitCode: null,
 		cols: 100, rows: 28, startedAt: Date.now(),
@@ -120,7 +133,7 @@ function spawnPane({ agentId, cwd, slot }) {
 	const proc = pty.spawn(agent.file, agent.args, {
 		name: "xterm-256color",
 		cols: pane.cols, rows: pane.rows,
-		cwd: absCwd,
+		cwd: ptyCwd,
 		env: { ...process.env, PATH: CHILD_PATH, TERM: "xterm-256color", COLORTERM: "truecolor" },
 	});
 	pane.proc = proc;
@@ -172,6 +185,64 @@ function killPane(id) {
 }
 
 /* ------------------------------------------------------------------ */
+/* git worktree 隔离：窗格可跑在仓库外的独立工作区                         */
+/* ------------------------------------------------------------------ */
+
+const WT_ROOT = path.join(os.homedir(), ".agent-deck", "worktrees");
+
+function gitRun(args, cwd) {
+	return execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+}
+function gitRoot(dir) {
+	try { return gitRun(["rev-parse", "--show-toplevel"], dir); } catch { return ""; }
+}
+
+/* 为 cwd 创建独立 worktree：仓库外建目录 + 从当前 HEAD 切分支。
+   返回 null = 不是 git 仓库（调用方降级为普通目录）；throw = git 失败（如空仓库） */
+function createWorktree(cwd) {
+	const root = gitRoot(cwd);
+	if (!root) return null;
+	const id = `wt${Date.now().toString(36)}`;
+	const slug = path.basename(root).replace(/[^A-Za-z0-9._-]/g, "_") || "repo";
+	const hash = crypto.createHash("sha1").update(root).digest("hex").slice(0, 8);
+	const wtPath = path.join(WT_ROOT, `${slug}-${hash}`, id);
+	const branch = `ad/${id}`;
+	fs.mkdirSync(path.dirname(wtPath), { recursive: true });
+	gitRun(["worktree", "add", "-b", branch, wtPath], root);
+	return { repoRoot: root, wtPath, branch };
+}
+
+/* 处置 worktree：merge（自动提交后合并回主工作区当前分支）/ discard / keep */
+function disposeWorktree(pane, action) {
+	const wt = pane.wt;
+	if (!wt) return { ok: false, error: "no worktree" };
+	const { repoRoot, wtPath, branch } = wt;
+	const failMsg = (err) => String((err && (err.stderr || err.stdout)) || err?.message || err || "").trim().slice(0, 400);
+	if (action === "merge") {
+		try {
+			if (gitRun(["status", "--porcelain"], wtPath)) {
+				gitRun(["add", "-A"], wtPath);
+				gitRun(["commit", "-m", `AgentDeck: ${pane.agentId} snapshot (${branch})`], wtPath);
+			}
+			gitRun(["merge", branch, "--no-edit"], repoRoot);
+		} catch (err) {
+			return { ok: false, conflict: true, error: failMsg(err) };
+		}
+		/* 合并已成功，清理失败不回滚，只报告 */
+		let cleanup = "";
+		try { gitRun(["worktree", "remove", "--force", wtPath], repoRoot); } catch (err) { cleanup = failMsg(err); }
+		try { gitRun(["branch", "-D", branch], repoRoot); } catch (err) { cleanup += " " + failMsg(err); }
+		return { ok: true, merged: true, cleanup: cleanup.trim() };
+	}
+	if (action === "discard") {
+		try { gitRun(["worktree", "remove", "--force", wtPath], repoRoot); } catch {}
+		try { gitRun(["branch", "-D", branch], repoRoot); } catch {}
+		return { ok: true, discarded: true };
+	}
+	return { ok: true, kept: wtPath }; /* keep：保留工作区，仅关进程 */
+}
+
+/* ------------------------------------------------------------------ */
 /* 最近目录（来自 pi 会话库，方便快速选 cwd）                             */
 /* ------------------------------------------------------------------ */
 
@@ -207,6 +278,128 @@ async function scanRecentDirs() {
 }
 
 /* ------------------------------------------------------------------ */
+/* 浏览器插件桥接：插件经 /ext 反连，agent 经 HTTP API 下发命令            */
+/* ------------------------------------------------------------------ */
+
+const SHOTS_DIR = path.join(os.homedir(), ".agent-deck", "shots");
+const extClients = new Set();
+const pendingBrowser = new Map(); // id -> { resolve, reject, timer }
+let browserSeq = 0;
+
+/* 配对 token：优先 AG_EXT_TOKEN；否则持久化到 ~/.agent-deck/ext-token（重启不变，免重复配对） */
+const EXT_TOKEN = (() => {
+	if (process.env.AG_EXT_TOKEN) return process.env.AG_EXT_TOKEN;
+	const f = path.join(os.homedir(), ".agent-deck", "ext-token");
+	try { const t = fs.readFileSync(f, "utf8").trim(); if (t) return t; } catch {}
+	const t = crypto.randomBytes(24).toString("base64url");
+	try { fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, t, { mode: 0o600 }); } catch {}
+	return t;
+})();
+
+function readBody(req, limit = 1024 * 1024) {
+	return new Promise((resolve, reject) => {
+		let size = 0;
+		const chunks = [];
+		req.on("data", (c) => {
+			size += c.length;
+			if (size > limit) { reject(new Error("body too large")); req.destroy(); return; }
+			chunks.push(c);
+		});
+		req.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
+		req.on("error", reject);
+	});
+}
+
+/* 下发一条浏览器命令给已配对的插件，等 cmd-result 回包（15s 超时） */
+function browserCommand({ op, args = {} }) {
+	if (!op || typeof op !== "string") return Promise.reject(new Error("missing op"));
+	if (!extClients.size) return Promise.reject(new Error("extension not connected (open the AgentDeck extension and pair first)"));
+	const id = `b${Date.now().toString(36)}${(++browserSeq).toString(36)}`;
+	return new Promise((resolve, reject) => {
+		const timer = setTimeout(() => {
+			pendingBrowser.delete(id);
+			reject(new Error("extension timeout (15s)"));
+		}, 15000);
+		pendingBrowser.set(id, { resolve, reject, timer });
+		const msg = JSON.stringify({ t: "cmd", id, op, args });
+		for (const ws of extClients) {
+			if (ws.readyState === 1) { try { ws.send(msg); } catch {} }
+		}
+	});
+}
+
+const extWss = new WebSocketServer({ noServer: true });
+
+/* 未授权的插件连接可以存在，但只能收 pair-request / 发 pair-approve；拿到 token 才升级为完全控制 */
+const pendingPairs = new Map(); // nonce -> timer
+
+function pairRequest() {
+	const nonce = crypto.randomBytes(16).toString("hex");
+	pendingPairs.set(nonce, setTimeout(() => pendingPairs.delete(nonce), 2 * 60 * 1000));
+	const msg = JSON.stringify({ t: "pair-request", nonce });
+	for (const ws of extWss.clients) {
+		if (ws.readyState === 1 && !ws._adAuthed) { try { ws.send(msg); } catch {} }
+	}
+	return nonce;
+}
+
+function broadcastBrowserStatus() {
+	broadcast({ t: "browser-status", connected: extClients.size > 0 });
+}
+
+extWss.on("connection", (ws) => {
+	let authed = false;
+	ws._adAuthed = false;
+	ws.on("message", (raw) => {
+		let m;
+		try { m = JSON.parse(raw.toString()); } catch { return; }
+		if (!authed) {
+			/* 握手：token 正确 → 完全控制；否则留在待配对状态（不再直接踢，支持一键配对流程） */
+			if (m.t === "ext-hello") {
+				if (m.token === EXT_TOKEN) {
+					authed = true; ws._adAuthed = true; extClients.add(ws);
+					try { ws.send(JSON.stringify({ t: "ext-hello-ok" })); } catch {}
+					broadcastBrowserStatus();
+				} else {
+					try { ws.send(JSON.stringify({ t: "pair-needed" })); } catch {}
+				}
+				return;
+			}
+			/* 配对同意：UI 点「连接浏览器」→ 服务端推 pair-request(nonce) → 用户在扩展弹窗点同意 */
+			if (m.t === "pair-approve" && typeof m.nonce === "string" && pendingPairs.has(m.nonce)) {
+				clearTimeout(pendingPairs.get(m.nonce));
+				pendingPairs.delete(m.nonce);
+				authed = true; ws._adAuthed = true; extClients.add(ws);
+				try { ws.send(JSON.stringify({ t: "pair-ok", token: EXT_TOKEN })); } catch {}
+				broadcastBrowserStatus();
+			}
+			if (m.t === "pair-deny" && typeof m.nonce === "string") {
+				clearTimeout(pendingPairs.get(m.nonce));
+				pendingPairs.delete(m.nonce);
+			}
+			/* pair-deny / 其他消息：一律忽略 */
+			return;
+		}
+		switch (m.t) {
+			case "ping":
+				try { ws.send(JSON.stringify({ t: "pong" })); } catch {}
+				break;
+			case "cmd-result": {
+				const p = pendingBrowser.get(m.id);
+				if (!p) break;
+				pendingBrowser.delete(m.id);
+				clearTimeout(p.timer);
+				if (m.ok) p.resolve(m.data);
+				else p.reject(new Error(String(m.error || "extension error")));
+				break;
+			}
+		}
+	});
+	ws.on("close", () => { extClients.delete(ws); broadcastBrowserStatus(); });
+	ws.on("error", () => {});
+});
+
+/* ------------------------------------------------------------------ */
 /* WebSocket                                                           */
 /* ------------------------------------------------------------------ */
 
@@ -231,14 +424,37 @@ wss.on("connection", (ws) => {
 						agents: AGENTS,
 						recents: undefined, // 占位，下面异步补
 						panes: [...panes.values()].map(paneMeta),
+						browser: extClients.size > 0,
 					}));
 					scanRecentDirs().then((recents) => {
 						if (ws.readyState === 1) ws.send(JSON.stringify({ t: "recents", recents }));
 					});
 					break;
 				case "spawn": {
-					const pane = spawnPane({ agentId: m.agentId, cwd: m.cwd, slot: m.slot });
+					const pane = spawnPane({ agentId: m.agentId, cwd: m.cwd, slot: m.slot, worktree: !!m.worktree, reuseWt: m.reuseWt });
 					ws.send(JSON.stringify({ t: "spawned-yours", id: pane.id }));
+					if (panes.get(pane.id)?.wtDropped) {
+						ws.send(JSON.stringify({ t: "notice", code: "wt-dropped" }));
+					}
+					break;
+				}
+				case "wt-dispose": {
+					/* 杀进程 + 处置 worktree 一体完成（killPane 会立刻删记录，这里单独处理） */
+					const p = panes.get(m.id);
+					if (!p) {
+						ws.send(JSON.stringify({ t: "wt-disposed", id: m.id, branch: "", result: { ok: false, error: "pane not found" } }));
+						break;
+					}
+					const action = m.action === "merge" || m.action === "discard" ? m.action : "keep";
+					if (p.proc) {
+						try { p.proc.kill(); } catch {}
+						setTimeout(() => { try { p.proc.kill("SIGKILL"); } catch {} }, 1500);
+					}
+					const result = disposeWorktree(p, action);
+					const branch = p.wt ? p.wt.branch : "";
+					panes.delete(m.id);
+					broadcast({ t: "panes", panes: [...panes.values()].map(paneMeta) });
+					if (ws.readyState === 1) ws.send(JSON.stringify({ t: "wt-disposed", id: m.id, branch, result }));
 					break;
 				}
 				case "setTitle": {
@@ -324,13 +540,56 @@ const server = http.createServer(async (req, res) => {
 	if (req.method === "GET" && p === "/api/recents") {
 		return res.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify({ recents: await scanRecentDirs() }));
 	}
+	if (req.method === "GET" && p === "/api/browser/status") {
+		return res.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify({ connected: extClients.size > 0 }));
+	}
+	if (req.method === "POST" && p === "/api/browser/pair") {
+		/* 只允许自家 UI 页面（Origin === 本服务地址）或无 Origin 的本地进程（curl）；其他来源一律拒绝 */
+		const origin = String(req.headers.origin || "");
+		const ownOrigin = origin === "" || origin === `http://${req.headers.host || ""}`;
+		if (!ownOrigin) return res.writeHead(403).end("forbidden");
+		if (!extWss.clients.size) {
+			return res.writeHead(400, { "Content-Type": "application/json" })
+				.end(JSON.stringify({ ok: false, error: "extension not connected — install/enable the AgentDeck Bridge extension first" }));
+		}
+		if (extClients.size) return res.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify({ ok: true, already: true }));
+		pairRequest();
+		return res.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify({ ok: true }));
+	}
+	if (req.method === "POST" && p === "/api/browser/cmd") {
+		/* 拒带 Origin 的请求：浏览器里的恶意网页无法跨站驱动本机浏览器（curl/agent 不带 Origin） */
+		if (req.headers.origin) return res.writeHead(403).end("forbidden");
+		try {
+			const body = JSON.parse((await readBody(req)) || "{}");
+			const data = await browserCommand(body);
+			if (body.op === "screenshot" && data?.pngBase64) {
+				fs.mkdirSync(SHOTS_DIR, { recursive: true });
+				const file = path.join(SHOTS_DIR, `shot-${Date.now()}.png`);
+				fs.writeFileSync(file, Buffer.from(data.pngBase64, "base64"));
+				const payload = { ok: true, path: file, bytes: fs.statSync(file).size, url: data.url, title: data.title };
+				/* inline: MCP 等调用方要内联图片；curl 默认不给，避免终端唰屏 */
+				if (body.inline) payload.pngBase64 = data.pngBase64;
+				return res.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify(payload));
+			}
+			return res.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify({ ok: true, ...(data || {}) }));
+		} catch (err) {
+			return res.writeHead(400, { "Content-Type": "application/json" }).end(JSON.stringify({ ok: false, error: String(err?.message || err) }));
+		}
+	}
 	res.writeHead(404).end("not found");
 });
 
 server.on("upgrade", (req, socket, head) => {
 	const { pathname } = new URL(req.url, "http://localhost");
 	if (pathname === "/ws") wss.handleUpgrade(req, socket, head, (ws) => wss.emit("connection", ws, req));
-	else socket.destroy();
+	else if (pathname === "/ext") {
+		/* 关键防线：浏览器里的恶意网页也能连 ws://127.0.0.1，但它的 Origin 是 https://…；
+		   真实扩展的 SW 连接 Origin 是 chrome-extension://，本地进程/测试客户端无 Origin。
+		   网页来源一律拒绝，防抢答配对、防未授权驱动浏览器 */
+		const origin = String(req.headers.origin || "");
+		if (/^https?:\/\//i.test(origin)) { socket.destroy(); return; }
+		extWss.handleUpgrade(req, socket, head, (ws) => extWss.emit("connection", ws, req));
+	} else socket.destroy();
 });
 
 /* 优雅退出 */
@@ -348,4 +607,5 @@ server.listen(PORT, HOST, () => {
 	console.log(`AgentDeck`);
 	console.log(`  URL:     http://${HOST}:${PORT}`);
 	console.log(`  Agents:  ${AGENTS.map((a) => a.name).join(" / ")}`);
+	console.log(`  Browser: pair the extension (extension/) — token in ~/.agent-deck/ext-token`);
 });

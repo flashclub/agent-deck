@@ -84,6 +84,8 @@ body {
 	font-size: 13.5px; display: inline-flex; align-items: center; justify-content: center; gap: 4px;
 }
 .tbtn:hover { color: var(--fg); border-color: var(--accent); }
+#browserDot { width: 8px; height: 8px; border-radius: 50%; background: var(--fg3); display: inline-block; margin-right: 6px; flex: none; }
+#browserDot.on { background: var(--green); box-shadow: 0 0 6px var(--green); }
 #fontSizeLab { min-width: 44px; text-align: center; color: var(--fg2); font-variant-numeric: tabular-nums; }
 
 .accentWrap { position: relative; }
@@ -223,6 +225,13 @@ body {
 .dlg h4 { margin: 0 0 8px; font-size: 15.5px; }
 .dlg p { margin: 0 0 20px; color: var(--fg2); font-size: 13.5px; line-height: 1.6; white-space: pre-wrap; word-break: break-all; }
 .dlg .row { display: flex; justify-content: flex-end; gap: 10px; }
+.dlg .row.col { flex-direction: column; align-items: stretch; }
+.dlg .row.col .bigBtn { width: 100%; justify-content: center; }
+
+/* worktree 勾选框（启动器） */
+.wtToggle { display: flex; align-items: center; gap: 5px; font-size: 12.5px; color: var(--fg3); cursor: pointer; white-space: nowrap; flex: none; user-select: none; }
+.wtToggle input { accent-color: var(--accent); margin: 0; cursor: pointer; }
+.wtToggle:hover { color: var(--fg2); }
 .bigBtn.danger { background: var(--red); color: #fff; }
 
 /* ================= 断线提示 ================= */
@@ -314,6 +323,7 @@ body.bar-collapsed #barShow { display: inline-flex; }
 		<button class="tbtn" id="accentBtn" title="Accent">◈</button>
 		<div id="accentPop"></div>
 	</div>
+	<button class="tbtn" id="browserBtn"><span id="browserDot"></span><span id="browserLbl"></span></button>
 	<div id="themeSeg">
 		<button id="thDark">🌙 深色</button>
 		<button id="thLight">☀️ 浅色</button>
@@ -436,6 +446,13 @@ const I18N = {
 		closeTitle: (n) => `关闭 ${n}？`, killMsg: (cwd) => `进程将被终止\n${cwd}`, killBtn: "终止并关闭",
 		restartTitle: (n) => `重新启动 ${n}？`, restartMsg: (cwd) => `当前进程将被终止\n${cwd}`, restartBtn: "重启",
 		ok: "确定", cancel: "取消", running: "运行", clickToEdit: "点击编辑标题", accentT: "强调色",
+		wtLbl: "独立 worktree", wtToggleT: "在独立 git worktree 中运行（隔离工作区，避免并行冲突）",
+		wtCloseTitle: (n) => `关闭 ${n} 的 worktree？`, wtCloseMsg: (b) => `分支 ${b} 中的改动如何处置？`,
+		wtMerge: "合并回主分支并关闭", wtDiscard: "丢弃改动并关闭", wtKeep: "保留 worktree，仅关闭进程",
+		wtMerged: (b) => `已合并 ${b}`, wtConflict: "合并冲突——worktree 已保留，请手动处理", wtDiscarded: "已丢弃 worktree 及分支", wtFail: "非 git 仓库，已按普通目录运行",
+		browserT: "连接浏览器", browserOn: "浏览器已连接",
+		browserPairing: "配对请求已发送——请在浏览器弹出的窗口点击「同意连接」",
+		browserPairFail: "浏览器插件未连接，请确认扩展已安装并启用",
 	},
 	en: {
 		dark: "🌙 Dark", light: "☀️ Light", fontMinusTitle: "Smaller terminal font", fontPlusTitle: "Larger terminal font", collapseBar: "Hide ▾", expandBar: "Show toolbar",
@@ -455,6 +472,13 @@ const I18N = {
 		closeTitle: (n) => `Close ${n}?`, killMsg: (cwd) => `The process will be terminated\n${cwd}`, killBtn: "Terminate & close",
 		restartTitle: (n) => `Restart ${n}?`, restartMsg: (cwd) => `The current process will be terminated\n${cwd}`, restartBtn: "Restart",
 		ok: "OK", cancel: "Cancel", running: "running", clickToEdit: "Click to edit title", accentT: "Accent color",
+		wtLbl: "Isolated worktree", wtToggleT: "Run in an isolated git worktree (avoids parallel conflicts)",
+		wtCloseTitle: (n) => `Close ${n}'s worktree?`, wtCloseMsg: (b) => `What should happen to the changes on ${b}?`,
+		wtMerge: "Merge into main branch & close", wtDiscard: "Discard changes & close", wtKeep: "Keep worktree, stop process only",
+		wtMerged: (b) => `Merged ${b}`, wtConflict: "Merge conflict — worktree kept for manual handling", wtDiscarded: "Worktree discarded", wtFail: "Not a git repo — running in a plain directory",
+		browserT: "Connect browser", browserOn: "Browser connected",
+		browserPairing: "Pair request sent — click “Approve” in the browser popup",
+		browserPairFail: "Extension not connected — install/enable the AgentDeck Bridge extension",
 	},
 };
 let lang = localStorage.getItem("ag:lang") || "en";
@@ -492,6 +516,7 @@ for (let i = 0; i < SLOTS; i++) {
 			<div class="agentBtns"></div>
 			<div class="cwdRow">
 				<input class="cwdInput" list="recentsList" spellcheck="false" />
+				<label class="wtToggle"><input type="checkbox" class="wtBox" /><span class="wtLbl"></span></label>
 				<button class="bigBtn primary goBtn"></button>
 			</div>
 			<div class="chips"></div>
@@ -506,7 +531,7 @@ for (let i = 0; i < SLOTS; i++) {
 		</div>`;
 	grid.append(root);
 	/* 自动生成元素引用：选择器 → 属性名 */
-	const REF_MAP = { hd: ".pane-hd", dot: ".pdot", icon: ".picon", name: ".pname", ptitle: ".ptitle", cwd: ".pcwd", termBox: ".term", launcher: ".launcher", agentBtns: ".agentBtns", cwdInput: ".cwdInput", goBtn: ".goBtn", chips: ".chips", exited: ".exited", exitedCode: ".exited .code", lh3: ".launcher h3", lhint: ".launcher .hint", reBtn: ".reBtn", clearBtn: ".clearBtn", maxBtn: ".pact.max", restartBtn: ".pact.restart", closeBtn: ".pact.close" };
+	const REF_MAP = { hd: ".pane-hd", dot: ".pdot", icon: ".picon", name: ".pname", ptitle: ".ptitle", cwd: ".pcwd", termBox: ".term", launcher: ".launcher", agentBtns: ".agentBtns", cwdInput: ".cwdInput", goBtn: ".goBtn", chips: ".chips", exited: ".exited", exitedCode: ".exited .code", lh3: ".launcher h3", lhint: ".launcher .hint", wtBox: ".wtBox", wtLbl: ".wtLbl", reBtn: ".reBtn", clearBtn: ".clearBtn", maxBtn: ".pact.max", restartBtn: ".pact.restart", closeBtn: ".pact.close" };
 	const el = { root };
 	for (const [k, sel] of Object.entries(REF_MAP)) el[k] = root.querySelector(sel);
 	paneEls.push(el);
@@ -524,7 +549,7 @@ for (let i = 0; i < SLOTS; i++) {
 	el.restartBtn.onclick = (e) => { e.stopPropagation(); restartSlot(i); };
 	el.closeBtn.onclick = (e) => { e.stopPropagation(); closeSlot(i); };
 	el.reBtn.onclick = () => restartSlot(i);
-	el.clearBtn.onclick = () => { clearSlot(i); };
+	el.clearBtn.onclick = () => { closeSlot(i); };
 	el.goBtn.onclick = () => launchFrom(i);
 	el.cwdInput.addEventListener("keydown", (e) => { if (e.key === "Enter") launchFrom(i); });
 
@@ -600,7 +625,7 @@ function renderAgentBtns(slot) {
 	// datalist + chips
 	$("#recentsList").innerHTML = recents.map((d) => `<option value="${esc(d)}">`).join("");
 	el.chips.innerHTML = "";
-	for (const d of recents.slice(0, 6)) {
+	for (const d of recents.slice(0, 3)) {
 		const c = document.createElement("button");
 		c.className = "chip";
 		c.textContent = "~/…" + d.split("/").slice(-2).join("/");
@@ -619,7 +644,7 @@ function launchFrom(slot) {
 function launch(slot, agentId, cwd) {
 	if (slotPane[slot]) return toast(T().paneBusy, true);
 	if (!pendingSpawn.includes(slot)) pendingSpawn.push(slot);
-	send({ t: "spawn", agentId, cwd: cwd || undefined, slot });
+	send({ t: "spawn", agentId, cwd: cwd || undefined, slot, worktree: paneEls[slot].wtBox.checked });
 }
 function syncPaneHeader(slot) {
 	const pid = slotPane[slot];
@@ -630,8 +655,13 @@ function syncPaneHeader(slot) {
 	el.icon.textContent = meta.icon;
 	el.name.textContent = meta.name;
 	if (!document.activeElement?.classList.contains("ptitle-input")) el.ptitle.textContent = meta.title;
-	el.cwd.textContent = meta.cwd;
-	el.cwd.title = meta.cwd;
+	if (meta.wt) {
+		el.cwd.textContent = `⎇ ${meta.wt.branch} @ ${meta.cwd}`;
+		el.cwd.title = `${meta.wt.branch}\n${meta.wt.wtPath}`;
+	} else {
+		el.cwd.textContent = meta.cwd;
+		el.cwd.title = meta.cwd;
+	}
 }
 
 /** 点击标题内联编辑，Enter/失焦保存，Esc 取消 */
@@ -688,22 +718,31 @@ function setDot(slot, cls) {
 	paneEls[slot].dot.className = "pdot" + (cls ? " " + cls : "");
 }
 function detachSlot(slot) {
+	/* 清理全屏态：关闭/重启全屏中的窗格时，退出 maxmode，否则其余窗格仍被 display:none */
+	if (slot === maxedSlot) {
+		maxedSlot = -1;
+		grid.classList.remove("maxmode");
+		paneEls[slot].root.classList.remove("maxed");
+	}
 	const pid = slotPane[slot];
 	if (pid) { paneSlot.delete(pid); }
 	slotPane[slot] = null;
 	showLauncher(slot, true);
 	setDot(slot, "");
 }
-function clearSlot(slot) {
-	const pid = slotPane[slot];
-	if (pid) send({ t: "kill", id: pid });
-	detachSlot(slot);
-}
 async function closeSlot(slot) {
 	const pid = slotPane[slot];
 	if (!pid) return;
 	const meta = paneMeta.get(pid);
 	if (!meta) return;
+	if (meta.wt) {
+		/* worktree 窗格：三态处置（服务端 wt-dispose 一并杀进程） */
+		const action = await worktreeDialog(meta);
+		if (!action) return;
+		send({ t: "wt-dispose", id: pid, action });
+		detachSlot(slot);
+		return;
+	}
 	if (meta.running) {
 		const ok = await confirmDialog({
 			title: T().closeTitle(meta.name),
@@ -711,9 +750,39 @@ async function closeSlot(slot) {
 			confirmText: T().killBtn, danger: true,
 		});
 		if (!ok) return;
-		send({ t: "kill", id: pid });
 	}
+	/* 已退出的窗格也要发 kill：服务端要删记录，否则僵尸会在 reconcile 时复活抢占格位 */
+	send({ t: "kill", id: pid });
 	detachSlot(slot);
+}
+
+/** worktree 三态处置弹窗：合并 / 丢弃 / 保留（Esc/点遮罩 = 取消） */
+function worktreeDialog(meta) {
+	if (_dlg) _dlg.remove();
+	return new Promise((resolve) => {
+		const mask = document.createElement("div");
+		mask.className = "dlg-mask";
+		mask.innerHTML = `
+			<div class="dlg" role="dialog" aria-modal="true">
+				<h4>${esc(T().wtCloseTitle(meta.name))}</h4>
+				<p>${esc(T().wtCloseMsg(meta.wt.branch))}</p>
+				<div class="row col">
+					<button class="bigBtn primary w-merge">${esc(T().wtMerge)}</button>
+					<button class="bigBtn danger w-discard">${esc(T().wtDiscard)}</button>
+					<button class="bigBtn ghost w-keep">${esc(T().wtKeep)}</button>
+				</div>
+			</div>`;
+		const done = (v) => { mask.remove(); _dlg = null; document.removeEventListener("keydown", onKey); resolve(v); };
+		const onKey = (e) => { if (e.key === "Escape") done(null); };
+		mask.addEventListener("mousedown", (e) => { if (e.target === mask) done(null); });
+		mask.querySelector(".w-merge").onclick = () => done("merge");
+		mask.querySelector(".w-discard").onclick = () => done("discard");
+		mask.querySelector(".w-keep").onclick = () => done("keep");
+		document.addEventListener("keydown", onKey);
+		document.body.append(mask);
+		mask.querySelector(".w-keep").focus();
+		_dlg = mask;
+	});
 }
 async function restartSlot(slot) {
 	const pid = slotPane[slot];
@@ -732,7 +801,7 @@ async function restartSlot(slot) {
 	send({ t: "kill", id: pid });
 	detachSlot(slot);
 	if (!pendingSpawn.includes(slot)) pendingSpawn.push(slot);
-	send({ t: "spawn", agentId, cwd, slot });
+	send({ t: "spawn", agentId, cwd, slot, reuseWt: meta.wt || undefined });
 }
 
 /* 放大 */
@@ -748,7 +817,8 @@ function toggleMax(slot) {
 		grid.classList.add("maxmode");
 		paneEls[slot].root.classList.add("maxed");
 	}
-	setTimeout(fitAll, 50);
+	/* 双 rAF 确保布局完成后 fit，避免全屏瞬间 fit 到中间尺寸 */
+	requestAnimationFrame(() => requestAnimationFrame(fitAll));
 }
 
 /* 焦点 */
@@ -775,6 +845,7 @@ function reconcile() {
 	const list = [...paneMeta.values()].sort((a, b) => a.startedAt - b.startedAt);
 	for (const pane of list) {
 		if (paneSlot.has(pane.id)) continue;
+		if (!pane.running) continue; // 已解绑的死亡窗格不重新挂载（避免僵尸复活抢占格位）
 		// 优先回服务端记录的原格位，其次用户点击的格位，最后第一个空格
 		let slot;
 		if (Number.isInteger(pane.slot) && pane.slot >= 0 && pane.slot < SLOTS && !slotPane[pane.slot]) {
@@ -826,6 +897,7 @@ function connect() {
 		switch (m.t) {
 			case "hello":
 				agents = m.agents || [];
+				setBrowser(!!m.browser);
 				paneMeta.clear();
 				for (const p of m.panes || []) paneMeta.set(p.id, p);
 				paneSlot.clear();
@@ -873,6 +945,20 @@ function connect() {
 				pendingSpawn.shift(); // 启动失败时释放占位的格（FIFO）
 				toast(m.message, true);
 				break;
+			case "notice":
+				if (m.code === "wt-dropped") toast(T().wtFail, true);
+				break;
+			case "browser-status":
+				setBrowser(!!m.connected);
+				break;
+			case "wt-disposed": {
+				const r = m.result || {};
+				if (r.merged) toast(T().wtMerged(m.branch || ""));
+				else if (r.conflict) toast(T().wtConflict, true);
+				else if (r.discarded) toast(T().wtDiscarded);
+				else if (r.ok === false && r.error && r.error !== "no worktree") toast(String(r.error), true);
+				break;
+			}
 		}
 	};
 }
@@ -925,7 +1011,11 @@ function fitSlot(slot) {
 	try { fits[slot] && fits[slot].fit(); } catch {}
 }
 function fitAll() {
-	for (let i = 0; i < SLOTS; i++) fitSlot(i);
+	for (let i = 0; i < SLOTS; i++) {
+		/* 跳过 display:none 的窗格：否则把隐藏终端的尺寸 fit 成 0/最小值，恢复时错位 */
+		if (!paneEls[i].root.offsetParent) continue;
+		fitSlot(i);
+	}
 }
 window.addEventListener("resize", fitAll);
 
@@ -1070,9 +1160,12 @@ function applyLang() {
 	$("#connBanner").textContent = t.connLost;
 	$("#langZh").classList.toggle("on", lang === "zh");
 	$("#langEn").classList.toggle("on", lang === "en");
+	$("#browserLbl").textContent = browserConnected ? t.browserOn : t.browserT;
 	for (const el of paneEls) {
 		el.lh3.textContent = t.pickAgent;
 		el.cwdInput.placeholder = t.cwdPh;
+		el.wtLbl.textContent = t.wtLbl;
+		el.wtBox.parentElement.title = t.wtToggleT;
 		el.goBtn.textContent = t.go;
 		el.lhint.textContent = t.launcherHint;
 		el.reBtn.textContent = t.reBtn;
@@ -1093,6 +1186,36 @@ let barCollapsed = localStorage.getItem("ag:barCollapsed") === "1";
 function applyBar() { document.body.classList.toggle("bar-collapsed", barCollapsed); }
 $("#barCollapse").onclick = () => { barCollapsed = true; localStorage.setItem("ag:barCollapsed", "1"); applyBar(); };
 $("#barShow").onclick = () => { barCollapsed = false; localStorage.setItem("ag:barCollapsed", "0"); applyBar(); };
+
+/* ================= 浏览器插件一键配对 ================= */
+let browserConnected = false;
+let browserPollTimer = null;
+function setBrowser(connected) {
+	browserConnected = connected;
+	$("#browserDot").classList.toggle("on", connected);
+	$("#browserLbl").textContent = connected ? T().browserOn : T().browserT;
+}
+$("#browserBtn").onclick = async () => {
+	if (browserConnected) return;
+	try {
+		const r = await fetch("/api/browser/pair", { method: "POST" });
+		const j = await r.json();
+		if (j.already) { setBrowser(true); return; }
+		if (j.ok) {
+			toast(T().browserPairing);
+			clearInterval(browserPollTimer);
+			let tries = 0;
+			browserPollTimer = setInterval(async () => {
+				tries++;
+				try {
+					const s = await (await fetch("/api/browser/status")).json();
+					if (s.connected) { clearInterval(browserPollTimer); setBrowser(true); }
+				} catch {}
+				if (tries > 40) clearInterval(browserPollTimer);
+			}, 1500);
+		} else toast(j.error || T().browserPairFail, true);
+	} catch { toast(T().browserPairFail, true); }
+};
 
 /* URL 参数（演示/截图/分享状态用）：?theme=dark|light&lang=zh|en&caster=1 —— 只改当次，不写入 localStorage */
 let casterParam = false; // ?caster=1：hello 后自动展开指挥条（截图/演示）
