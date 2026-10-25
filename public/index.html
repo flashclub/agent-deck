@@ -73,7 +73,7 @@ body {
 #brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 16px; }
 #brand .mark {
 	width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center;
-	background: linear-gradient(135deg, var(--accent-deep), var(--accent)); color: #fff; font-size: 14px;
+	background: linear-gradient(135deg, var(--accent-deep), var(--accent)); color: var(--accent-contrast); font-size: 14px;
 }
 #brand small { font-weight: 500; color: var(--fg3); font-size: 12.5px; }
 #topbar .grow { flex: 1; }
@@ -176,7 +176,7 @@ body {
 .agentBtn:hover { border-color: var(--accent); transform: translateY(-1px); }
 .agentBtn .ic {
 	width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; font-size: 17px; font-weight: 700;
-	background: linear-gradient(135deg, var(--accent-deep), var(--accent)); color: #fff;
+	background: linear-gradient(135deg, var(--accent-deep), var(--accent)); color: var(--accent-contrast);
 }
 .agentBtn .nm { font-weight: 600; font-size: 13.5px; }
 .agentBtn .ds { font-size: 11.5px; color: var(--fg3); }
@@ -204,7 +204,7 @@ body {
 .exited .code { color: var(--fg2); font-size: 13.5px; }
 .exited .row { display: flex; gap: 10px; }
 .bigBtn { padding: 9px 22px; border-radius: 10px; font-weight: 600; font-size: 14px; }
-.bigBtn.primary { background: linear-gradient(135deg, var(--accent-deep), var(--accent)); color: #fff; }
+.bigBtn.primary { background: linear-gradient(135deg, var(--accent-deep), var(--accent)); color: var(--accent-contrast); }
 .bigBtn.ghost { border: 1.5px solid var(--line); color: var(--fg2); background: var(--panel2); }
 .bigBtn:hover { filter: brightness(1.08); }
 
@@ -383,11 +383,21 @@ if (fontSize < 12 || fontSize > 24) fontSize = 15;
 function currentTermTheme() {
 	return { ...TERM_THEMES[themeName], cursor: (ACCENTS[accent] || ACCENTS.blue)[themeName][0] };
 }
+/* 强调色渐变上放文字：中点实测对比度 < 3:1（WCAG 图形件标准）时改用深色墨水，
+   避免 teal/amber 等亮色强调色下白字看不清 */
+function accentInk(c1, c2) {
+	const lin = (v) => (v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4));
+	const ch = (h, i) => lin(parseInt(h.slice(i, i + 2), 16) / 255);
+	const mid = [1, 3, 5].map((i) => (ch(c1, i) + ch(c2, i)) / 2);
+	const L = 0.2126 * mid[0] + 0.7152 * mid[1] + 0.0722 * mid[2];
+	return 1.05 / (L + 0.05) >= 3 ? "#ffffff" : "#14161c";
+}
 function applyAccent() {
 	const a = (ACCENTS[accent] || ACCENTS.blue)[themeName];
 	/* 必须设在 body 上：主题变量定义在 [data-theme](body)，设在 html 会被级联盖住 */
 	document.body.style.setProperty("--accent", a[0]);
 	document.body.style.setProperty("--accent-deep", a[1]);
+	document.body.style.setProperty("--accent-contrast", accentInk(a[0], a[1]));
 	for (const t of Object.values(terms)) if (t) t.options.theme = currentTermTheme();
 	renderAccentPop();
 }
@@ -396,6 +406,7 @@ function applyTheme() {
 	$("#thDark").classList.toggle("on", themeName === "dark");
 	$("#thLight").classList.toggle("on", themeName === "light");
 	applyAccent();
+	send({ t: "termTheme", theme: themeName }); // 服务端据此应答 TUI 的 OSC 10/11 颜色查询
 }
 function applyFontSize() {
 	$("#fontSizeLab").textContent = fontSize + "px";
@@ -804,6 +815,7 @@ function connect() {
 	ws.onopen = () => {
 		$("#connBanner").style.display = "none";
 		send({ t: "hello" });
+		send({ t: "termTheme", theme: themeName }); // 重连/首连时同步终端主题，供服务端应答 OSC 颜色查询
 	};
 	ws.onclose = () => {
 		$("#connBanner").style.display = "block";
@@ -1087,6 +1099,7 @@ let casterParam = false; // ?caster=1：hello 后自动展开指挥条（截图/
 {
 	const q = new URLSearchParams(location.search);
 	if (q.get("theme") === "light" || q.get("theme") === "dark") themeName = q.get("theme");
+	if (ACCENTS[q.get("accent")]) accent = q.get("accent");
 	if (q.get("lang") === "zh" || q.get("lang") === "en") lang = q.get("lang");
 	casterParam = q.get("caster") === "1";
 }

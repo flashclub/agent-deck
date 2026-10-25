@@ -86,6 +86,19 @@ function paneMeta(p) {
 	};
 }
 
+/* 代终端应答 OSC 10/11 颜色查询：pi 等 TUI 靠它探测终端明暗并自适应调色板。
+   xterm.js 不应答，浏览器往返又常超过 TUI 的等待窗口（~100ms），
+   所以在 PTY 输出流上直接扫描并即时注入应答 */
+const TERM_FGBG = {
+	dark: { fg: [0xee, 0xf1, 0xf6], bg: [0x21, 0x25, 0x2e] },
+	light: { fg: [0x1d, 0x22, 0x2c], bg: [0xff, 0xff, 0xff] },
+};
+let termTheme = "dark";
+const oscColorReply = (which) => {
+	const c = which === 11 ? TERM_FGBG[termTheme].bg : TERM_FGBG[termTheme].fg;
+	return `\x1b]${which};rgb:${c.map((v) => (v * 257).toString(16).padStart(4, "0")).join("/")}\x07`;
+};
+
 function spawnPane({ agentId, cwd, slot }) {
 	const agent = AGENTS.find((a) => a.id === agentId);
 	if (!agent) throw new Error(`Unknown agent: ${agentId}`);
@@ -113,6 +126,18 @@ function spawnPane({ agentId, cwd, slot }) {
 	pane.proc = proc;
 
 	proc.onData((data) => {
+		if (Date.now() - pane.startedAt < 8000) {
+			/* 启动窗口内扫描颜色查询；扫描全块，尾巴 12 字符防序列跨块 */
+			const hay = (pane.scanTail || "") + data;
+			let replied = false;
+			for (const which of [10, 11]) {
+				if (hay.includes(`]${which};?`)) {
+					/* pi 会查询两轮（首轮应答可能被丢弃），每次真实出现都应答 */
+					try { proc.write(oscColorReply(which)); replied = true; } catch {}
+				}
+			}
+			pane.scanTail = replied ? "" : hay.slice(-12);
+		}
 		pane.buf.push(data);
 		pane.bufLen += data.length;
 		while (pane.bufLen > BUF_CAP && pane.buf.length > 1) {
@@ -229,7 +254,16 @@ wss.on("connection", (ws) => {
 				}
 				case "input": {
 					const p = panes.get(m.id);
-					if (p?.proc) p.proc.write(m.data);
+					if (p?.proc) {
+						let data = m.data;
+						/* xterm.js 用 VT100 应答 DA1（ESC[?1;2c），TUI（如 pi）会据此判定
+						   终端不支持 OSC 颜色查询而丢弃我们的 OSC 10/11 应答；
+						   启动窗口内丢弃该应答，让 TUI 走无 DA1 的回退探测（实测颜色协商正常） */
+						if (Date.now() - p.startedAt < 8000 && data.includes("\x1b[?")) {
+							data = data.replace(/\x1b\[\?[0-9;]*c/g, "");
+						}
+						p.proc.write(data);
+					}
 					break;
 				}
 				case "resize": {
@@ -245,6 +279,9 @@ wss.on("connection", (ws) => {
 					if (p && ws.readyState === 1) ws.send(JSON.stringify({ t: "output", id: p.id, data: p.buf.join("") }));
 					break;
 				}
+				case "termTheme":
+					if (m.theme === "light" || m.theme === "dark") termTheme = m.theme;
+					break;
 				case "kill": killPane(m.id); break;
 			}
 		} catch (err) {
